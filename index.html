@@ -1,0 +1,3498 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Recall — Spaced Repetition Study Planner</title>
+<meta name="description" content="Study a lecture once, and Recall schedules every review for you across the next four months." />
+<meta name="theme-color" content="#5b5bd6" />
+
+<!-- Fonts load when online and gracefully fall back to the system stack offline -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================================
+   RECALL — Spaced Repetition Study Planner
+   A single-file, offline-first study planner. No backend, no build step.
+   Sections below: Design tokens · Base · Layout · Components · Views · Responsive
+   ========================================================================== */
+
+/* ---- Design tokens ------------------------------------------------------- */
+:root{
+  --font-display:"Space Grotesk", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body:"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Surfaces & ink (light) */
+  --bg:#f5f6fb;
+  --bg-grad:radial-gradient(1200px 600px at 100% -10%, #eceefc 0%, transparent 60%),
+            radial-gradient(900px 500px at -10% 0%, #eef6f2 0%, transparent 55%);
+  --surface:#ffffff;
+  --surface-2:#f1f3fa;
+  --surface-3:#e9ecf6;
+  --border:#e5e8f2;
+  --border-strong:#d6dae8;
+  --ink:#1a1e2c;
+  --ink-soft:#5b6276;
+  --ink-faint:#8a90a3;
+  --primary:#5b5bd6;
+  --primary-ink:#4a47c9;
+  --primary-soft:#eceafc;
+  --shadow-sm:0 1px 2px rgba(26,30,44,.06), 0 1px 3px rgba(26,30,44,.04);
+  --shadow:0 6px 20px -8px rgba(40,44,80,.18), 0 2px 6px -2px rgba(40,44,80,.08);
+  --shadow-lg:0 24px 60px -24px rgba(40,44,80,.35);
+  --radius:18px;
+  --radius-sm:12px;
+  --radius-xs:9px;
+
+  /* Status palette — functional colour coding */
+  --c-new:#3f74e8;        --c-new-bg:#e8f0fe;   --c-new-ink:#1f54c9;
+  --c-upcoming:#8b7bf3;   --c-upcoming-bg:#efebfe;--c-upcoming-ink:#5d49d0;
+  --c-due:#e6991f;        --c-due-bg:#fcf2da;   --c-due-ink:#9c6709;
+  --c-completed:#2bb084;  --c-completed-bg:#e1f6ef;--c-completed-ink:#127a58;
+  --c-overdue:#ef6a52;    --c-overdue-bg:#fde8e3;--c-overdue-ink:#c33f25;
+
+  --tabbar-h:64px;
+}
+html[data-theme="dark"]{
+  --bg:#0e1018;
+  --bg-grad:radial-gradient(1100px 560px at 100% -10%, #1b1d33 0%, transparent 60%),
+            radial-gradient(900px 480px at -10% 0%, #122019 0%, transparent 55%);
+  --surface:#171a25;
+  --surface-2:#1d2130;
+  --surface-3:#252a3b;
+  --border:#272c3c;
+  --border-strong:#333a4f;
+  --ink:#e9ebf5;
+  --ink-soft:#a4abbe;
+  --ink-faint:#737a8e;
+  --primary:#8a8af0;
+  --primary-ink:#a3a3f7;
+  --primary-soft:#23244a;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 10px 28px -12px rgba(0,0,0,.6);
+  --shadow-lg:0 30px 70px -28px rgba(0,0,0,.75);
+
+  --c-new:#6b9bff;        --c-new-bg:#1a2748;   --c-new-ink:#a8c4ff;
+  --c-upcoming:#a99bff;   --c-upcoming-bg:#252046;--c-upcoming-ink:#c4b9ff;
+  --c-due:#f0b54a;        --c-due-bg:#3a2e12;   --c-due-ink:#f7cf86;
+  --c-completed:#3ccb9a;  --c-completed-bg:#10342a;--c-completed-ink:#7fe6c6;
+  --c-overdue:#f5836d;    --c-overdue-bg:#3c2019;--c-overdue-ink:#ffb3a3;
+}
+
+/* ---- Base ---------------------------------------------------------------- */
+*{box-sizing:border-box}
+[hidden]{display:none!important}   /* the hidden attribute must always win over class display rules */
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--font-body);
+  background:var(--bg);
+  background-image:var(--bg-grad);
+  background-attachment:fixed;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  font-size:15px;
+  line-height:1.45;
+}
+h1,h2,h3,h4{font-family:var(--font-display);margin:0;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+button{font-family:inherit;cursor:pointer}
+input,select,button{font-family:inherit;font-size:14px;color:var(--ink)}
+a{color:inherit}
+::selection{background:var(--primary-soft);color:var(--primary-ink)}
+:focus-visible{outline:2.5px solid var(--primary);outline-offset:2px;border-radius:6px}
+.muted{color:var(--ink-soft)}
+.faint{color:var(--ink-faint)}
+
+/* ---- App shell ----------------------------------------------------------- */
+.app{display:grid;grid-template-columns:248px 1fr;min-height:100dvh}
+
+.sidebar{
+  position:sticky;top:0;align-self:start;height:100dvh;
+  padding:22px 16px;display:flex;flex-direction:column;gap:8px;
+  border-right:1px solid var(--border);
+  background:color-mix(in srgb, var(--surface) 75%, transparent);
+  backdrop-filter:blur(8px);
+}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 16px}
+.brand-mark{width:34px;height:34px;flex:0 0 auto}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.02em}
+.brand-name b{color:var(--primary-ink)}
+.brand-sub{font-size:11px;color:var(--ink-faint);letter-spacing:.04em;text-transform:uppercase;margin-top:-2px}
+
+.nav{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.nav-link{
+  display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;background:transparent;
+  border-radius:var(--radius-sm);color:var(--ink-soft);font-weight:500;font-size:14.5px;width:100%;text-align:left;
+  transition:background .15s, color .15s;
+}
+.nav-link svg{width:19px;height:19px;flex:0 0 auto}
+.nav-link:hover{background:var(--surface-2);color:var(--ink)}
+.nav-link.active{background:var(--primary-soft);color:var(--primary-ink);font-weight:600}
+.nav-badge{margin-left:auto;background:var(--c-overdue);color:#fff;font-size:11px;font-weight:700;
+  min-width:19px;height:19px;border-radius:10px;display:grid;place-items:center;padding:0 5px}
+.sidebar-foot{margin-top:auto;font-size:11.5px;color:var(--ink-faint);padding:8px;line-height:1.5}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+  padding:14px clamp(16px,3vw,30px);
+  background:color-mix(in srgb, var(--bg) 82%, transparent);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.topbar-mark{display:none;align-items:center;gap:9px}
+.topbar-mark .brand-mark{width:28px;height:28px}
+.topbar-mark .brand-name{font-size:17px}
+.topbar-title{font-size:18px;font-weight:600}
+.topbar-spacer{flex:1}
+.icon-btn{
+  display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--border);
+  background:var(--surface);color:var(--ink-soft);transition:.15s;box-shadow:var(--shadow-sm)
+}
+.icon-btn:hover{color:var(--ink);border-color:var(--border-strong);transform:translateY(-1px)}
+.icon-btn svg{width:19px;height:19px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;border:1px solid transparent;border-radius:12px;
+  padding:10px 16px;font-weight:600;font-size:14px;transition:.15s;white-space:nowrap;
+}
+.btn svg{width:17px;height:17px}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:var(--shadow)}
+.btn-primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-ghost{background:var(--surface);border-color:var(--border);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.btn-danger{background:var(--c-overdue-bg);color:var(--c-overdue-ink);border-color:transparent}
+.btn-danger:hover{filter:brightness(.97)}
+.btn-sm{padding:7px 12px;font-size:13px;border-radius:10px}
+
+.content{padding:clamp(16px,3vw,30px);padding-bottom:calc(var(--tabbar-h) + 28px);max-width:1180px;width:100%}
+@media(min-width:861px){.content{padding-bottom:36px}}
+
+/* ---- Views --------------------------------------------------------------- */
+.view{display:none;animation:fade .35s ease both}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.view-head h1{font-size:clamp(22px,3.2vw,30px);font-weight:700}
+.view-head .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-ink);font-weight:600;margin-bottom:2px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card-pad{padding:clamp(16px,2.4vw,22px)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.card-head h3{font-size:15px;font-weight:600}
+.card-head .hint{font-size:12.5px;color:var(--ink-faint)}
+
+/* Dashboard grid */
+.dash-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:18px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:18px}
+
+/* Stat tiles */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 15px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.stat .num{font-family:var(--font-display);font-size:27px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.stat .lbl{font-size:12px;color:var(--ink-soft);margin-top:6px;font-weight:500}
+.stat .spark{position:absolute;right:12px;top:12px;width:9px;height:9px;border-radius:50%}
+.stat.accent-due .spark{background:var(--c-due)} .stat.accent-due .num{color:var(--c-due-ink)}
+.stat.accent-over .spark{background:var(--c-overdue)} .stat.accent-over .num{color:var(--c-overdue-ink)}
+.stat.accent-done .spark{background:var(--c-completed)} .stat.accent-done .num{color:var(--c-completed-ink)}
+.stat.accent-up .spark{background:var(--c-upcoming)}
+
+/* Today hero panel */
+.today-panel{background:linear-gradient(150deg, var(--surface) 0%, var(--surface) 100%);position:relative;overflow:hidden}
+.today-date{font-size:13px;color:var(--ink-soft);font-weight:500}
+.today-h{font-size:21px;font-weight:700;margin:2px 0 2px}
+.progress-ring-wrap{display:flex;align-items:center;gap:18px;margin:6px 0 16px}
+.ring{width:78px;height:78px;flex:0 0 auto}
+.ring-meta .big{font-family:var(--font-display);font-size:22px;font-weight:700;line-height:1.1}
+.ring-meta .small{font-size:13px;color:var(--ink-soft)}
+
+/* Task list */
+.task-list{display:flex;flex-direction:column;gap:8px}
+.task{
+  display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:var(--radius-sm);
+  background:var(--surface-2);border:1px solid transparent;transition:.16s;
+}
+.task:hover{border-color:var(--border-strong)}
+.task.done{background:var(--c-completed-bg)}
+.check{
+  appearance:none;-webkit-appearance:none;width:22px;height:22px;flex:0 0 auto;border-radius:7px;
+  border:2px solid var(--border-strong);background:var(--surface);display:grid;place-items:center;transition:.15s;cursor:pointer;position:relative
+}
+.check:hover{border-color:var(--primary)}
+.check:checked{background:var(--c-completed);border-color:var(--c-completed)}
+.check:checked::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2.4px 2.4px 0;transform:rotate(42deg) translateY(-1px);position:absolute;top:2px}
+.task-main{min-width:0;flex:1}
+.task-name{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task.done .task-name{text-decoration:line-through;color:var(--ink-soft)}
+.task-sub{font-size:12.5px;color:var(--ink-faint);display:flex;align-items:center;gap:7px;margin-top:1px;flex-wrap:wrap}
+.rep-tag{font-size:11px;font-weight:600;padding:1px 7px;border-radius:20px;background:var(--surface-3);color:var(--ink-soft)}
+
+/* Status badges & dots */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.9}
+.badge.s-new{background:var(--c-new-bg);color:var(--c-new-ink)}
+.badge.s-upcoming{background:var(--c-upcoming-bg);color:var(--c-upcoming-ink)}
+.badge.s-due{background:var(--c-due-bg);color:var(--c-due-ink)}
+.badge.s-completed{background:var(--c-completed-bg);color:var(--c-completed-ink)}
+.badge.s-overdue{background:var(--c-overdue-bg);color:var(--c-overdue-ink)}
+
+.empty{text-align:center;padding:34px 18px;color:var(--ink-soft)}
+.empty svg{width:42px;height:42px;color:var(--ink-faint);margin-bottom:10px}
+.empty h4{font-size:16px;margin-bottom:5px;color:var(--ink)}
+.empty p{font-size:13.5px;max-width:340px;margin:0 auto 14px}
+
+/* Heatmap */
+.heatmap{display:flex;gap:3px;overflow-x:auto;padding-bottom:4px}
+.hm-col{display:flex;flex-direction:column;gap:3px}
+.hm-cell{width:13px;height:13px;border-radius:3.5px;background:var(--surface-3);transition:.1s}
+.hm-cell[data-l="1"]{background:color-mix(in srgb,var(--c-completed) 32%, var(--surface-3))}
+.hm-cell[data-l="2"]{background:color-mix(in srgb,var(--c-completed) 56%, var(--surface-3))}
+.hm-cell[data-l="3"]{background:color-mix(in srgb,var(--c-completed) 78%, var(--surface-3))}
+.hm-cell[data-l="4"]{background:var(--c-completed)}
+.hm-cell:hover{outline:2px solid var(--primary);outline-offset:1px}
+.hm-legend{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-faint);margin-top:10px;justify-content:flex-end}
+.hm-legend .hm-cell{width:11px;height:11px}
+
+/* Workload bars */
+.bars{display:flex;align-items:flex-end;gap:9px;height:120px;padding-top:6px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.bar{width:100%;max-width:30px;border-radius:7px 7px 4px 4px;background:linear-gradient(180deg,var(--c-upcoming),color-mix(in srgb,var(--c-upcoming) 60%,var(--surface)));min-height:4px;transition:height .4s ease}
+.bar-lbl{font-size:10.5px;color:var(--ink-faint);white-space:nowrap}
+.bar-val{font-size:11px;font-weight:700;color:var(--ink-soft)}
+
+/* Streak */
+.streak{display:flex;align-items:center;gap:14px}
+.fc-stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:16px}
+.fc-stat{background:var(--surface-2);border-radius:var(--radius-sm);padding:12px 14px}
+.fc-stat .n{font-family:var(--font-display);font-size:22px;font-weight:700;line-height:1.1;color:var(--ink)}
+.fc-stat .t{font-size:12px;color:var(--ink-soft);margin-top:4px}
+.heat-wrap{overflow-x:auto;padding-bottom:4px}
+.heat-grid{display:flex;gap:3px;width:max-content}
+.heat-col{display:flex;flex-direction:column;gap:3px}
+.heat-cell{width:11px;height:11px;border-radius:3px;background:var(--surface-3)}
+.heat-cell.heat-empty{background:transparent}
+.heat-cell.heat-1{background:var(--c-new,#3f74e8);opacity:.35}
+.heat-cell.heat-2{background:var(--c-new,#3f74e8);opacity:.6}
+.heat-cell.heat-3{background:var(--c-new,#3f74e8);opacity:.8}
+.heat-cell.heat-4{background:var(--c-new,#3f74e8);opacity:1}
+.flame{width:46px;height:46px;flex:0 0 auto}
+.streak .n{font-family:var(--font-display);font-size:26px;font-weight:700;line-height:1}
+.streak .t{font-size:13px;color:var(--ink-soft)}
+
+/* ---- Calendar ------------------------------------------------------------ */
+.cal-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.cal-month{font-family:var(--font-display);font-size:20px;font-weight:700;min-width:172px}
+.cal-legend{display:flex;gap:14px;flex-wrap:wrap;margin-left:auto;font-size:12px;color:var(--ink-soft)}
+.cal-legend span{display:inline-flex;align-items:center;gap:6px}
+.cal-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.cal-dow{font-size:11.5px;font-weight:600;color:var(--ink-faint);text-align:center;text-transform:uppercase;letter-spacing:.05em;padding-bottom:2px}
+.cal-cell{
+  background:var(--surface);border:1px solid var(--border);border-radius:13px;min-height:92px;padding:7px 8px;
+  display:flex;flex-direction:column;gap:5px;cursor:pointer;transition:.14s;position:relative;overflow:hidden
+}
+.cal-cell:hover{border-color:var(--primary);transform:translateY(-1px);box-shadow:var(--shadow)}
+.cal-cell.dim{opacity:.42}
+.cal-cell.today{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary) inset}
+.cal-cell.selected{box-shadow:0 0 0 2px var(--primary)}
+.cal-daynum{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.cal-cell.today .cal-daynum{color:var(--primary-ink)}
+.cal-events{display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal-ev{display:flex;align-items:center;gap:5px;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-ev i{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.cal-more{font-size:10.5px;color:var(--ink-faint);font-weight:600}
+.cal-dots{display:flex;gap:3px;margin-top:auto}
+.cal-dots i{width:6px;height:6px;border-radius:50%}
+
+.day-detail{margin-top:18px}
+.day-detail .when{font-size:13px;color:var(--ink-soft);font-weight:500}
+
+/* ---- Schedule & Lectures ------------------------------------------------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.search{position:relative;flex:1;min-width:200px}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--ink-faint)}
+.search input{width:100%;padding:11px 14px 11px 38px;border-radius:12px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm)}
+.search input:focus{border-color:var(--primary);outline:none}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:500;color:var(--ink-soft);transition:.14s}
+.chip:hover{border-color:var(--border-strong)}
+.chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+
+/* Lecture card with review track (signature element) */
+.lec{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);margin-bottom:12px;transition:.15s}
+.lec:hover{box-shadow:var(--shadow)}
+.lec-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.lec-name{font-size:16px;font-weight:600}
+.lec-meta{font-size:12.5px;color:var(--ink-faint);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap}
+.lec-actions{display:flex;gap:6px;flex:0 0 auto}
+.lec-pct{display:flex;align-items:center;gap:10px;margin:12px 0 4px}
+.lec-pct .barwrap{flex:1;height:7px;border-radius:6px;background:var(--surface-3);overflow:hidden}
+.lec-pct .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--c-completed),color-mix(in srgb,var(--c-completed) 65%,var(--primary)));transition:width .5s}
+.lec-pct .v{font-size:12.5px;font-weight:700;color:var(--c-completed-ink);min-width:36px;text-align:right}
+
+/* The 10-step memory track: dots with expanding gaps echo the interval rhythm */
+.track{display:flex;align-items:center;gap:0;margin-top:12px;overflow-x:auto;padding:4px 2px}
+.track-node{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 auto}
+.track-dot{width:17px;height:17px;border-radius:50%;border:2px solid var(--border-strong);background:var(--surface);display:grid;place-items:center;transition:.15s;position:relative}
+.track-dot small{font-size:9px;font-weight:700;color:var(--ink-faint)}
+.track-dot.s-completed{background:var(--c-completed);border-color:var(--c-completed)}
+.track-dot.s-completed small{color:#fff}
+.track-dot.s-due{background:var(--c-due);border-color:var(--c-due);box-shadow:0 0 0 4px var(--c-due-bg)}
+.track-dot.s-due small{color:#fff}
+.track-dot.s-overdue{background:var(--c-overdue);border-color:var(--c-overdue);box-shadow:0 0 0 4px var(--c-overdue-bg)}
+.track-dot.s-overdue small{color:#fff}
+.track-dot.s-upcoming{border-color:var(--c-upcoming);background:var(--c-upcoming-bg)}
+.track-dot.s-upcoming small{color:var(--c-upcoming-ink)}
+.track-link{height:2px;background:var(--border);align-self:flex-start;margin-top:8px;border-radius:2px}
+.track-day{font-size:9.5px;color:var(--ink-faint);white-space:nowrap}
+
+/* ---- Settings ------------------------------------------------------------ */
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid var(--border)}
+.set-row:last-child{border-bottom:none}
+.set-row .label{font-weight:600;font-size:14.5px}
+.set-row .desc{font-size:12.5px;color:var(--ink-soft);margin-top:2px;max-width:440px}
+.switch{position:relative;width:48px;height:28px;flex:0 0 auto}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch .slider{position:absolute;inset:0;background:var(--surface-3);border-radius:20px;transition:.2s;border:1px solid var(--border)}
+.switch .slider::before{content:"";position:absolute;width:22px;height:22px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:var(--shadow-sm)}
+.switch input:checked + .slider{background:var(--primary);border-color:var(--primary)}
+.switch input:checked + .slider::before{transform:translateX(20px)}
+
+.intervals{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:10px;margin-top:6px}
+.iv-field label{display:block;font-size:11px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+.iv-field input{width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);text-align:center;font-weight:600}
+.iv-field input:focus{border-color:var(--primary);outline:none}
+
+/* ---- Modal --------------------------------------------------------------- */
+.modal-backdrop{position:fixed;inset:0;background:rgba(20,22,40,.5);backdrop-filter:blur(3px);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}
+.modal-backdrop.open{display:flex;animation:fade .2s ease}
+.modal{background:var(--surface);border-radius:22px;box-shadow:var(--shadow-lg);width:100%;max-width:440px;border:1px solid var(--border);animation:pop .25s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes pop{from{transform:scale(.95) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.modal-head{padding:20px 22px 0;display:flex;align-items:center;justify-content:space-between}
+.modal-head h3{font-size:18px}
+.modal-body{padding:16px 22px 22px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink-soft)}
+.field input{width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--border);background:var(--surface-2)}
+.field input:focus{border-color:var(--primary);outline:none;background:var(--surface)}
+.field .help{font-size:12px;color:var(--ink-faint);margin-top:6px}
+.modal-foot{display:flex;gap:10px;margin-top:8px}
+.modal-foot .btn{flex:1;justify-content:center}
+
+/* ---- Toasts -------------------------------------------------------------- */
+.toasts{position:fixed;bottom:calc(var(--tabbar-h) + 14px);left:50%;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:90vw}
+@media(min-width:861px){.toasts{bottom:22px;left:auto;right:22px;transform:none;align-items:flex-end}}
+.toast{background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:9px;animation:toastIn .3s ease both}
+.toast svg{width:17px;height:17px;flex:0 0 auto}
+.toast.ok{background:var(--c-completed);color:#fff}
+.toast.warn{background:var(--c-due);color:#fff}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* ---- Mobile bottom nav --------------------------------------------------- */
+.tabbar{display:none}
+
+/* ---- Confetti canvas ----------------------------------------------------- */
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:120;display:none}
+
+/* ---- Responsive ---------------------------------------------------------- */
+@media(max-width:860px){
+  .app{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .topbar-mark{display:flex}
+  .dash-grid{grid-template-columns:1fr}
+  .calendar{gap:5px}
+  .cal-cell{min-height:74px;padding:5px 6px;border-radius:11px}
+  .cal-ev{display:none}
+  .cal-legend{width:100%;margin-left:0}
+  .tabbar{
+    display:grid;grid-template-columns:repeat(6,1fr);position:fixed;bottom:0;left:0;right:0;height:var(--tabbar-h);
+    background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(12px);border-top:1px solid var(--border);
+    z-index:60;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--ink-faint);font-size:10px;font-weight:600;position:relative;padding:0 2px}
+  .tab svg{width:20px;height:20px}
+  .tab.active{color:var(--primary-ink)}
+  .tab .nav-badge{position:absolute;top:5px;right:calc(50% - 20px)}
+}
+@media(max-width:430px){
+  .calendar{gap:3px}
+  .cal-cell{min-height:58px;border-radius:9px}
+  .cal-daynum{font-size:11px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+
+/* ---- Textareas (shared) -------------------------------------------------- */
+.field textarea{
+  width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--border);background:var(--surface-2);
+  font-family:inherit;font-size:14px;color:var(--ink);resize:vertical;line-height:1.5
+}
+.field textarea:focus{border-color:var(--primary);outline:none;background:var(--surface)}
+
+/* ---- Card images (upload / preview / thumbnails) ------------------------- */
+.img-slot{margin-top:8px}
+.img-preview{position:relative;display:inline-block;max-width:100%;border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.img-preview img{display:block;max-width:100%;max-height:220px;object-fit:contain;background:var(--surface-2)}
+.img-preview-actions{display:flex;gap:6px;padding:7px;background:var(--surface-2);border-top:1px solid var(--border)}
+.card-row-thumb{width:44px;height:44px;object-fit:cover;border-radius:8px;flex:0 0 auto;border:1px solid var(--border)}
+.review-img{max-width:100%;max-height:38vh;object-fit:contain;border-radius:14px;margin-bottom:14px}
+
+/* ---- Image annotation tool ----------------------------------------------- */
+.anno-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px;background:var(--surface-2);border-radius:12px}
+.anno-tool{width:36px;height:36px;display:grid;place-items:center;border:none;border-radius:9px;background:transparent;color:var(--ink-soft)}
+.anno-tool svg{width:18px;height:18px}
+.anno-tool.active{background:var(--primary);color:#fff}
+.anno-colors{display:flex;gap:5px;margin:0 4px}
+.anno-color{width:22px;height:22px;border-radius:50%;border:2px solid transparent;padding:0}
+.anno-color.active{border-color:var(--ink)}
+#annoSize{width:90px}
+.anno-canvas-wrap{display:flex;justify-content:center;background:var(--surface-2);border-radius:12px;padding:10px;overflow:auto}
+#annoCanvas{max-width:100%;border-radius:6px;touch-action:none;cursor:crosshair;background:#fff}
+
+/* ---- Import modal --------------------------------------------------------- */
+.import-tabs{display:flex;gap:6px;margin-bottom:14px;background:var(--surface-2);border-radius:11px;padding:4px}
+.import-tab{flex:1;padding:9px;border:none;border-radius:8px;background:transparent;font-size:13.5px;font-weight:600;color:var(--ink-soft)}
+.import-tab.active{background:var(--surface);color:var(--primary-ink);box-shadow:var(--shadow)}
+
+/* ---- Flashcards: subject/lecture tree + deck ----------------------------- */
+.fc-layout{display:grid;grid-template-columns:288px 1fr;gap:18px;align-items:start}
+.fc-tree{position:sticky;top:84px}
+.fc-add-row{display:flex;gap:8px;margin-bottom:12px}
+.fc-add-row input{flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-size:13.5px}
+.fc-add-row input:focus{border-color:var(--primary);outline:none}
+.subj{margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden}
+.subj-head{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer;transition:.13s}
+.subj-head:hover{background:var(--surface-2)}
+.subj-caret{width:15px;height:15px;flex:0 0 auto;color:var(--ink-faint);transition:transform .18s}
+.subj.open .subj-caret{transform:rotate(90deg)}
+.subj-name{font-weight:600;font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subj-due{font-size:11px;font-weight:700;color:#fff;background:var(--c-due);border-radius:10px;padding:1px 7px}
+.subj-actions{display:none;gap:2px}
+.subj-head:hover .subj-actions{display:flex}
+.mini-btn{width:26px;height:26px;display:grid;place-items:center;border:none;background:transparent;border-radius:7px;color:var(--ink-faint)}
+.mini-btn:hover{background:var(--surface-3);color:var(--ink)}
+.mini-btn svg{width:14px;height:14px}
+.subj-lectures{display:none;padding:4px 8px 8px}
+.subj.open .subj-lectures{display:block}
+.flec{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;cursor:pointer;transition:.12s;margin-top:2px}
+.flec:hover{background:var(--surface-2)}
+.flec.active{background:var(--primary-soft)}
+.flec-dot{width:7px;height:7px;border-radius:50%;background:var(--border-strong);flex:0 0 auto}
+.flec.active .flec-dot{background:var(--primary)}
+.flec-name{flex:1;min-width:0;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flec.active .flec-name{color:var(--primary-ink);font-weight:600}
+.flec-count{font-size:11px;color:var(--ink-faint);font-weight:600}
+.flec-count.has-due{color:var(--c-due-ink)}
+.flec-actions{display:none;gap:1px}
+.flec:hover .flec-actions{display:flex}
+.fc-lec-add{display:flex;gap:6px;margin-top:6px}
+.fc-subj-study{width:100%;justify-content:center;margin-bottom:8px}
+.fc-lec-add input{flex:1;padding:7px 10px;border-radius:8px;border:1px dashed var(--border-strong);background:transparent;font-size:13px}
+.fc-lec-add input:focus{border-style:solid;border-color:var(--primary);outline:none}
+
+/* Deck panel */
+.deck-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.deck-title{font-size:19px;font-weight:700}
+.deck-sub{font-size:13px;color:var(--ink-faint);margin-top:3px}
+.deck-stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.deck-pill{font-size:12px;font-weight:600;padding:4px 11px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft)}
+.deck-pill.due{background:var(--c-due-bg);color:var(--c-due-ink)}
+.deck-pill.new{background:var(--c-new-bg);color:var(--c-new-ink)}
+.deck-pill.mastered{background:var(--c-completed-bg);color:var(--c-completed-ink)}
+.deck-actions{display:flex;gap:8px;flex-wrap:wrap}
+.card-row{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--surface-2);margin-bottom:8px;transition:.13s}
+.card-row:hover{background:var(--surface-3)}
+.card-status-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:0 0 auto}
+.card-status-dot.s-new{background:var(--c-new)} .card-status-dot.s-due{background:var(--c-due)}
+.card-status-dot.s-overdue{background:var(--c-overdue)} .card-status-dot.s-upcoming{background:var(--c-upcoming)}
+.card-status-dot.s-mastered{background:var(--c-completed)}
+.card-qa{flex:1;min-width:0}
+.card-q{font-weight:600;font-size:14px;line-height:1.4}
+.card-a{font-size:13px;color:var(--ink-soft);margin-top:3px;line-height:1.4}
+.card-meta{font-size:11px;color:var(--ink-faint);margin-top:5px}
+.card-row-actions{display:flex;gap:3px;flex:0 0 auto}
+
+/* ---- Review overlay ------------------------------------------------------ */
+.review-overlay{position:fixed;inset:0;z-index:100;background:var(--bg);background-image:var(--bg-grad);display:none;flex-direction:column;padding:max(16px,env(safe-area-inset-top)) 16px 22px}
+.review-overlay.open{display:flex;animation:fade .25s ease}
+.review-top{display:flex;align-items:center;gap:14px;max-width:720px;width:100%;margin:0 auto}
+.review-progress{flex:1;height:8px;border-radius:6px;background:var(--surface-3);overflow:hidden}
+.review-progress-bar{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--primary),var(--c-completed));transition:width .3s}
+.review-count{font-size:13px;font-weight:600;color:var(--ink-soft);min-width:54px;text-align:right}
+.review-stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;max-width:720px;margin:0 auto;padding:18px 0}
+.review-cards{width:100%;display:flex;flex-direction:column;gap:16px;cursor:pointer}
+.review-card{width:100%;min-height:180px;background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-lg);padding:30px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transition:transform .15s;position:relative}
+.review-cards:active .review-card{transform:scale(.995)}
+.review-deck-label{position:absolute;top:16px;left:0;right:0;text-align:center;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.review-a-label{position:absolute;top:16px;left:0;right:0;text-align:center;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--primary-ink);font-weight:600}
+.review-card-a{border-color:var(--primary);box-shadow:var(--shadow-lg),0 0 0 1px var(--primary-soft)}
+.review-q{font-size:clamp(20px,3.4vw,28px);font-weight:600;line-height:1.35;color:var(--ink);font-family:var(--font-display)}
+.review-a{font-size:clamp(20px,3.4vw,28px);font-weight:700;line-height:1.35;color:var(--primary-ink);font-family:var(--font-display);white-space:pre-wrap}
+.review-hint{font-size:12.5px;color:var(--ink-faint);margin-top:16px}
+.review-controls{max-width:720px;width:100%;margin:0 auto}
+.btn-reveal{width:100%;padding:16px;border-radius:16px;border:none;background:var(--primary);color:#fff;font-size:16px;font-weight:600;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:10px;transition:.15s}
+.btn-reveal:hover{filter:brightness(1.06)}
+.btn-reveal kbd,.grade kbd{font-family:var(--font-body);font-size:11px;background:rgba(255,255,255,.22);padding:2px 7px;border-radius:6px;font-weight:600}
+.grade-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.grade{padding:14px 8px;border-radius:16px;border:none;color:#fff;font-size:14px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:var(--shadow);transition:.14s;position:relative}
+.grade:hover{transform:translateY(-2px);filter:brightness(1.05)}
+.grade small{font-size:11px;font-weight:600;opacity:.9}
+.grade kbd{position:absolute;top:7px;right:7px}
+.grade-again{background:var(--c-overdue)}
+.grade-hard{background:var(--c-due)}
+.grade-good{background:var(--c-upcoming)}
+.grade-easy{background:var(--c-completed)}
+.review-done{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px}
+.review-done-inner{text-align:center;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-lg);padding:36px 28px;animation:pop .3s cubic-bezier(.2,.9,.3,1.2)}
+.review-done-mark{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--c-completed-bg);color:var(--c-completed);margin-bottom:14px}
+.review-done-mark svg{width:32px;height:32px}
+.review-done-inner h2{font-size:23px;margin-bottom:8px}
+
+@media(max-width:860px){
+  .fc-layout{grid-template-columns:1fr}
+  .fc-tree{position:static}
+  .fc-tree.has-selection{display:none}        /* drill-down on mobile: show deck when a lecture is picked */
+  .deck-panel.no-selection{display:none}
+}
+@media(min-width:861px){ .fc-back-btn{display:none} }
+
+/* ---- Style ends ---------------------------------------------------------- */
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ===== Sidebar (desktop) ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" id="brandMark"></span>
+      <div>
+        <div class="brand-name">Re<b>call</b></div>
+        <div class="brand-sub">Study planner</div>
+      </div>
+    </div>
+    <nav class="nav" id="navDesktop">
+      <button class="nav-link active" data-view="today"><span class="ic-today"></span><span>Today</span></button>
+      <button class="nav-link" data-view="calendar"><span class="ic-cal"></span><span>Calendar</span></button>
+      <button class="nav-link" data-view="flashcards"><span class="ic-cards"></span><span>Flashcards</span><span class="nav-badge" data-cbadge hidden>0</span></button>
+      <button class="nav-link" data-view="schedule"><span class="ic-list"></span><span>Schedule</span><span class="nav-badge" data-badge hidden>0</span></button>
+      <button class="nav-link" data-view="lectures"><span class="ic-book"></span><span>Lectures</span></button>
+      <button class="nav-link" data-view="settings"><span class="ic-gear"></span><span>Settings</span></button>
+    </nav>
+    <div class="sidebar-foot">
+      Your data lives only in this browser.<br>Nothing is sent anywhere.
+    </div>
+  </aside>
+
+  <!-- ===== Main column ===== -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-mark">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Re<b>call</b></span>
+      </div>
+      <span class="topbar-title" id="topTitle" style="display:none">Today</span>
+      <div class="topbar-spacer"></div>
+      <button class="icon-btn" id="themeBtn" title="Toggle dark mode" aria-label="Toggle dark mode"></button>
+      <button class="btn btn-primary" id="addBtn"><span class="ic-plus"></span><span class="add-label">New lecture</span></button>
+    </header>
+
+    <main class="content">
+      <!-- TODAY / DASHBOARD -->
+      <section id="view-today" class="view active"></section>
+      <!-- CALENDAR -->
+      <section id="view-calendar" class="view"></section>
+      <!-- FLASHCARDS -->
+      <section id="view-flashcards" class="view"></section>
+      <!-- SCHEDULE -->
+      <section id="view-schedule" class="view"></section>
+      <!-- LECTURES -->
+      <section id="view-lectures" class="view"></section>
+      <!-- SETTINGS -->
+      <section id="view-settings" class="view"></section>
+    </main>
+  </div>
+</div>
+
+<!-- ===== Mobile bottom nav ===== -->
+<nav class="tabbar" id="navMobile">
+  <button class="tab active" data-view="today"><span class="ic-today"></span>Today</button>
+  <button class="tab" data-view="calendar"><span class="ic-cal"></span>Calendar</button>
+  <button class="tab" data-view="flashcards"><span class="ic-cards"></span>Cards<span class="nav-badge" data-cbadge hidden>0</span></button>
+  <button class="tab" data-view="schedule"><span class="ic-list"></span>Schedule<span class="nav-badge" data-badge hidden>0</span></button>
+  <button class="tab" data-view="lectures"><span class="ic-book"></span>Lectures</button>
+  <button class="tab" data-view="settings"><span class="ic-gear"></span>Settings</button>
+</nav>
+
+<!-- ===== Add / Edit modal ===== -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h3 id="modalTitle">New lecture</h3>
+      <button class="icon-btn" id="modalClose" aria-label="Close"><span class="ic-x"></span></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId" />
+      <div class="field">
+        <label for="lecName">Lecture name</label>
+        <input type="text" id="lecName" placeholder="e.g. Cardiology — Heart Failure" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="lecDate">Date studied</label>
+        <input type="date" id="lecDate" />
+        <div class="help" id="schedulePreview">Recall will schedule 10 reviews from this date.</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-danger" id="deleteBtn" style="display:none"><span class="ic-trash"></span>Delete</button>
+        <button class="btn btn-primary" id="saveBtn">Add lecture</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Flashcard editor modal ===== -->
+<div class="modal-backdrop" id="cardModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cardModalTitle" style="max-width:520px">
+    <div class="modal-head"><h3 id="cardModalTitle">New card</h3>
+      <button class="icon-btn" id="cardModalClose" aria-label="Close"><span class="ic-x"></span></button></div>
+    <div class="modal-body" style="max-height:72vh;overflow-y:auto">
+      <input type="hidden" id="cardEditId" />
+      <div class="field">
+        <label for="cardQ">Question (front)</label>
+        <textarea id="cardQ" rows="3" placeholder="What you'll be asked…"></textarea>
+        <div class="img-slot" id="qImgSlot" data-side="q"></div>
+      </div>
+      <div class="field">
+        <label for="cardA">Answer (back)</label>
+        <textarea id="cardA" rows="3" placeholder="What you need to recall…"></textarea>
+        <div class="img-slot" id="aImgSlot" data-side="a"></div>
+      </div>
+      <input type="file" id="imgFileInput" accept="image/*" hidden />
+      <div class="help" id="cardAddHint">Tip: press <b>Ctrl/Cmd + Enter</b> to save and add another.</div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="cardSaveAdd" style="flex:0 0 auto">Save &amp; add another</button>
+        <button class="btn btn-primary" id="cardSave">Save card</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Image annotation modal (pen / highlighter / eraser) ===== -->
+<div class="modal-backdrop" id="annotateModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="annotateTitle" style="max-width:min(94vw,760px)">
+    <div class="modal-head"><h3 id="annotateTitle">Annotate image</h3>
+      <button class="icon-btn" id="annotateClose" aria-label="Close"><span class="ic-x"></span></button></div>
+    <div class="modal-body">
+      <div class="anno-toolbar">
+        <button class="anno-tool active" data-tool="pen" title="Pen"><span class="ic-pen"></span></button>
+        <button class="anno-tool" data-tool="marker" title="Highlighter"><span class="ic-marker"></span></button>
+        <button class="anno-tool" data-tool="eraser" title="Eraser"><span class="ic-eraser"></span></button>
+        <span class="anno-colors" id="annoColors">
+          <button class="anno-color active" data-color="#ef4444" style="background:#ef4444"></button>
+          <button class="anno-color" data-color="#22c55e" style="background:#22c55e"></button>
+          <button class="anno-color" data-color="#3b82f6" style="background:#3b82f6"></button>
+          <button class="anno-color" data-color="#f59e0b" style="background:#f59e0b"></button>
+          <button class="anno-color" data-color="#111827" style="background:#111827"></button>
+        </span>
+        <input type="range" id="annoSize" min="2" max="40" value="6" title="Brush size" />
+        <button class="btn btn-ghost btn-sm" id="annoUndo">Undo</button>
+        <button class="btn btn-ghost btn-sm" id="annoClear">Clear</button>
+      </div>
+      <div class="anno-canvas-wrap"><canvas id="annoCanvas"></canvas></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="annoCancel">Cancel</button>
+        <button class="btn btn-primary" id="annoSave">Save annotations</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Import flashcards modal (CSV/TSV + Anki .apkg) ===== -->
+<div class="modal-backdrop" id="importModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle" style="max-width:520px">
+    <div class="modal-head"><h3 id="importTitle">Import cards</h3>
+      <button class="icon-btn" id="importClose" aria-label="Close"><span class="ic-x"></span></button></div>
+    <div class="modal-body">
+      <div class="import-tabs">
+        <button class="import-tab active" data-itab="csv">CSV / TSV</button>
+        <button class="import-tab" data-itab="apkg">Anki (.apkg)</button>
+      </div>
+      <div id="importCSVPane">
+        <p class="muted" style="font-size:13px;margin:0 0 10px">A file with two columns — question, answer — one per row. Comma, tab, or semicolon separated; quoted fields are supported. A header row (e.g. "Front,Back") is skipped automatically.</p>
+        <input type="file" id="csvFileInput" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain,*/*" />
+        <div class="help" id="csvStatus"></div>
+      </div>
+      <div id="importApkgPane" hidden>
+        <p class="muted" style="font-size:13px;margin:0 0 10px">Import an Anki deck package. Card text and embedded images are brought in as new cards in this lecture. Note types, templates, cloze deletions, and scheduling history are not preserved — cards start fresh in Recall's own plan.</p>
+        <input type="file" id="apkgFileInput" accept=".apkg,.colpkg,application/zip,*/*" />
+        <div class="help" id="apkgStatus"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="importCancel">Close</button>
+        <button class="btn btn-primary" id="importGo" disabled>Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Bulk import modal ===== -->
+<div class="modal-backdrop" id="bulkModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bulkTitle" style="max-width:520px">
+    <div class="modal-head"><h3 id="bulkTitle">Bulk add cards</h3>
+      <button class="icon-btn" id="bulkClose" aria-label="Close"><span class="ic-x"></span></button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="bulkText">One card per line — separate question and answer with a tab, <b>|</b>, <b>;</b> or <b> - </b></label>
+        <textarea id="bulkText" rows="9" placeholder="What is the first-line treatment for X? | Drug Y&#10;Cause of Z; Mechanism A&#10;Triad of W - sign1, sign2, sign3"></textarea>
+        <div class="help" id="bulkCount">0 cards detected</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="bulkCancel">Cancel</button>
+        <button class="btn btn-primary" id="bulkAdd">Add cards</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Anki-style review overlay ===== -->
+<div class="review-overlay" id="reviewOverlay">
+  <div class="review-top">
+    <button class="icon-btn" id="reviewExit" aria-label="Close review"><span class="ic-x"></span></button>
+    <div class="review-progress"><div class="review-progress-bar" id="reviewBar"></div></div>
+    <div class="review-count" id="reviewCount">0 / 0</div>
+  </div>
+  <div class="review-stage" id="reviewStage">
+    <div class="review-cards" id="reviewCard">
+      <div class="review-card review-card-q">
+        <div class="review-deck-label" id="reviewDeckLabel"></div>
+        <img class="review-img" id="reviewQImg" hidden alt="" />
+        <div class="review-q" id="reviewQ"></div>
+      </div>
+      <div class="review-card review-card-a" id="reviewCardA" hidden>
+        <div class="review-a-label">Answer</div>
+        <img class="review-img" id="reviewAImg" hidden alt="" />
+        <div class="review-a" id="reviewA"></div>
+      </div>
+    </div>
+  </div>
+  <div class="review-controls" id="reviewControls">
+    <button class="btn-reveal" id="btnReveal">Show answer <kbd>Space</kbd></button>
+    <div class="grade-row" id="gradeRow" hidden>
+      <button class="grade grade-again" data-grade="again">Again<small id="gAgain"></small><kbd>1</kbd></button>
+      <button class="grade grade-hard" data-grade="hard">Hard<small id="gHard"></small><kbd>2</kbd></button>
+      <button class="grade grade-good" data-grade="good">Good<small id="gGood"></small><kbd>3</kbd></button>
+      <button class="grade grade-easy" data-grade="easy">Easy<small id="gEasy"></small><kbd>4</kbd></button>
+    </div>
+  </div>
+  <div class="review-done" id="reviewDone" hidden>
+    <div class="review-done-inner">
+      <span class="review-done-mark" id="reviewDoneMark"></span>
+      <h2>Deck complete</h2>
+      <p id="reviewDoneMsg" class="muted"></p>
+      <button class="btn btn-primary" id="reviewDoneBtn">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Prompt dialog (rename, etc.) ===== -->
+<div class="modal-backdrop" id="promptModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="promptTitle" style="max-width:390px">
+    <div class="modal-head"><h3 id="promptTitle">Rename</h3></div>
+    <div class="modal-body">
+      <div class="field"><input type="text" id="promptInput" autocomplete="off" /></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="promptCancel">Cancel</button>
+        <button class="btn btn-primary" id="promptOK">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Confirmation dialog (replaces native confirm so it works in every frame) ===== -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" style="max-width:390px">
+    <div class="modal-head"><h3 id="confirmTitle">Are you sure?</h3></div>
+    <div class="modal-body">
+      <p id="confirmMsg" class="muted" style="font-size:14px;margin:0 0 20px;line-height:1.5"></p>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-primary" id="confirmOK">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<canvas id="confetti"></canvas>
+
+<!-- Hidden file input for JSON import -->
+<input type="file" id="importFile" accept="application/json,.json" style="display:none" />
+
+<script>
+/* ---- Inlined minimal Zstandard decompressor (adapted from fzstd by 101arrowz, MIT license) ----
+   Bundled directly (no CDN fetch) so .apkg import never depends on external network availability. */
+(function(){
+"use strict";
+var ab = ArrayBuffer, u8 = Uint8Array, u16 = Uint16Array, i16 = Int16Array, i32 = Int32Array;
+var slc = function(v, s, e){
+  if (u8.prototype.slice) return u8.prototype.slice.call(v, s, e);
+  if (s == null || s < 0) s = 0;
+  if (e == null || e > v.length) e = v.length;
+  var n = new u8(e - s); n.set(v.subarray(s, e)); return n;
+};
+var fillArr = function(v, n, s, e){
+  if (u8.prototype.fill) return u8.prototype.fill.call(v, n, s, e);
+  if (s == null || s < 0) s = 0;
+  if (e == null || e > v.length) e = v.length;
+  for (; s < e; ++s) v[s] = n;
+  return v;
+};
+var cpw = function(v, t, s, e){
+  if (u8.prototype.copyWithin) return u8.prototype.copyWithin.call(v, t, s, e);
+  if (s == null || s < 0) s = 0;
+  if (e == null || e > v.length) e = v.length;
+  while (s < e) v[t++] = v[s++];
+};
+var ec = ['invalid zstd data','window size too large (>2046MB)','invalid block type','FSE accuracy too high','match distance too far back','unexpected EOF'];
+var err = function(ind, msg, nt){
+  var e = new Error(msg || ec[ind]); e.code = ind;
+  if (Error.captureStackTrace) Error.captureStackTrace(e, err);
+  if (!nt) throw e; return e;
+};
+var rb = function(d, b, n){ var i=0,o=0; for(;i<n;++i) o|=d[b++]<<(i<<3); return o; };
+var b4 = function(d, b){ return (d[b]|(d[b+1]<<8)|(d[b+2]<<16)|(d[b+3]<<24))>>>0; };
+var rzfh = function(dat, w){
+  var n3 = dat[0]|(dat[1]<<8)|(dat[2]<<16);
+  if (n3 == 0x2FB528 && dat[3] == 253){
+    var flg = dat[4];
+    var ss=(flg>>5)&1, cc=(flg>>2)&1, df=flg&3, fcf=flg>>6;
+    if (flg & 8) err(0);
+    var bt = 6 - ss;
+    var db = df == 3 ? 4 : df;
+    var di = rb(dat, bt, db); bt += db;
+    var fsb = fcf ? (1<<fcf) : ss;
+    var fss = rb(dat, bt, fsb) + ((fcf == 1) && 256);
+    var ws = fss;
+    if (!ss){ var wb = 1<<(10+(dat[5]>>3)); ws = wb + (wb>>3)*(dat[5]&7); }
+    if (ws > 2145386496) err(1);
+    var buf = new u8((w == 1 ? (fss || ws) : w ? 0 : ws) + 12);
+    buf[0]=1, buf[4]=4, buf[8]=8;
+    return { b: bt+fsb, y:0, l:0, d:di, w:(w && w!=1)?w:buf.subarray(12), e:ws, o:new i32(buf.buffer,0,3), u:fss, c:cc, m:Math.min(131072,ws) };
+  } else if (((n3>>4)|(dat[3]<<20)) == 0x184D2A5){
+    return b4(dat,4)+8;
+  }
+  err(0);
+};
+var msb = function(val){ var bits=0; for(; (1<<bits)<=val; ++bits); return bits-1; };
+var rfse = function(dat, bt, mal){
+  var tpos=(bt<<3)+4;
+  var al = (dat[bt]&15)+5;
+  if (al > mal) err(3);
+  var sz = 1<<al;
+  var probs=sz, sym=-1, re=-1, i=-1, ht=sz;
+  var buf = new ab(512+(sz<<2));
+  var freq = new i16(buf,0,256);
+  var dstate = new u16(buf,0,256);
+  var nstate = new u16(buf,512,sz);
+  var bb1 = 512+(sz<<1);
+  var syms = new u8(buf,bb1,sz);
+  var nbits = new u8(buf,bb1+sz);
+  while (sym < 255 && probs > 0){
+    var bits = msb(probs+1);
+    var cbt = tpos>>3;
+    var msk = (1<<(bits+1))-1;
+    var val = ((dat[cbt]|(dat[cbt+1]<<8)|(dat[cbt+2]<<16))>>(tpos&7))&msk;
+    var msk1fb = (1<<bits)-1;
+    var msv = msk-probs-1;
+    var sval = val & msk1fb;
+    if (sval < msv){ tpos += bits; val = sval; }
+    else { tpos += bits+1; if (val > msk1fb) val -= msv; }
+    freq[++sym] = --val;
+    if (val == -1){ probs += val; syms[--ht] = sym; } else probs -= val;
+    if (!val){
+      do { var rbt = tpos>>3; re = ((dat[rbt]|(dat[rbt+1]<<8))>>(tpos&7))&3; tpos += 2; sym += re; } while (re == 3);
+    }
+  }
+  if (sym > 255 || probs) err(0);
+  var sympos = 0;
+  var sstep = (sz>>1)+(sz>>3)+3;
+  var smask = sz-1;
+  for (var s=0; s<=sym; ++s){
+    var sf = freq[s];
+    if (sf < 1){ dstate[s] = -sf; continue; }
+    for (i=0; i<sf; ++i){ syms[sympos]=s; do { sympos = (sympos+sstep)&smask; } while (sympos >= ht); }
+  }
+  if (sympos) err(0);
+  for (i=0; i<sz; ++i){ var ns = dstate[syms[i]]++; var nb = nbits[i] = al - msb(ns); nstate[i] = (ns<<nb)-sz; }
+  return [(tpos+7)>>3, { b: al, s: syms, n: nbits, t: nstate }];
+};
+var rhu = function(dat, bt){
+  var i=0, wc=-1;
+  var buf = new u8(292), hb = dat[bt];
+  var hw = buf.subarray(0,256);
+  var rc = buf.subarray(256,268);
+  var ri = new u16(buf.buffer,268);
+  if (hb < 128){
+    var fseRes = rfse(dat, bt+1, 6);
+    var ebt = fseRes[0], fdt = fseRes[1];
+    bt += hb;
+    var epos = ebt<<3;
+    var lb = dat[bt];
+    if (!lb) err(0);
+    var st1=0, st2=0, btr1=fdt.b, btr2=btr1;
+    var fpos = (++bt<<3)-8+msb(lb);
+    for(;;){
+      fpos -= btr1;
+      if (fpos < epos) break;
+      var cbt = fpos>>3;
+      st1 += ((dat[cbt]|(dat[cbt+1]<<8))>>(fpos&7))&((1<<btr1)-1);
+      hw[++wc] = fdt.s[st1];
+      fpos -= btr2;
+      if (fpos < epos) break;
+      cbt = fpos>>3;
+      st2 += ((dat[cbt]|(dat[cbt+1]<<8))>>(fpos&7))&((1<<btr2)-1);
+      hw[++wc] = fdt.s[st2];
+      btr1 = fdt.n[st1]; st1 = fdt.t[st1];
+      btr2 = fdt.n[st2]; st2 = fdt.t[st2];
+    }
+    if (++wc > 255) err(0);
+  } else {
+    wc = hb - 127;
+    for (; i<wc; i+=2){ var byte = dat[++bt]; hw[i]=byte>>4; hw[i+1]=byte&15; }
+    ++bt;
+  }
+  var wes = 0;
+  for (i=0; i<wc; ++i){ var wt = hw[i]; if (wt > 11) err(0); wes += wt && (1<<(wt-1)); }
+  var mb = msb(wes)+1;
+  var ts = 1<<mb;
+  var rem = ts - wes;
+  if (rem & (rem-1)) err(0);
+  hw[wc++] = msb(rem)+1;
+  for (i=0; i<wc; ++i){ var wt2 = hw[i]; ++rc[hw[i] = wt2 && (mb+1-wt2)]; }
+  var hbuf = new u8(ts<<1);
+  var syms2 = hbuf.subarray(0,ts), nb2 = hbuf.subarray(ts);
+  ri[mb] = 0;
+  for (i=mb; i>0; --i){ var pv = ri[i]; fillArr(nb2, i, pv, ri[i-1] = pv + rc[i]*(1<<(mb-i))); }
+  if (ri[0] != ts) err(0);
+  for (i=0; i<wc; ++i){ var bits2 = hw[i]; if (bits2){ var code = ri[bits2]; fillArr(syms2, i, code, ri[bits2] = code + (1<<(mb-bits2))); } }
+  return [bt, { n: nb2, b: mb, s: syms2 }];
+};
+var dllt = rfse(new u8([81,16,99,140,49,198,24,99,12,33,196,24,99,102,102,134,70,146,4]),0,6)[1];
+var dmlt = rfse(new u8([33,20,196,24,99,140,33,132,16,66,8,33,132,16,66,8,33,68,68,68,68,68,68,68,68,36,9]),0,6)[1];
+var doct = rfse(new u8([32,132,16,66,102,70,68,68,68,68,36,73,2]),0,5)[1];
+var b2bl = function(b, s){ var len=b.length, bl=new i32(len); for (var i=0;i<len;++i){ bl[i]=s; s += 1<<b[i]; } return bl; };
+var llb = new u8((new i32([0,0,0,0,16843009,50528770,134678020,202050057,269422093])).buffer,0,36);
+var llbl = b2bl(llb, 0);
+var mlb = new u8((new i32([0,0,0,0,0,0,0,0,16843009,50528770,117769220,185207048,252579084,16])).buffer,0,53);
+var mlbl = b2bl(mlb, 3);
+var dhu = function(dat, out, hu){
+  var len=dat.length, ss=out.length, lb=dat[len-1], msk=(1<<hu.b)-1, eb=-hu.b;
+  if (!lb) err(0);
+  var st=0, btr=hu.b, pos=(len<<3)-8+msb(lb)-btr, i=-1;
+  for (; pos > eb && i < ss;){
+    var cbt = pos>>3;
+    var val = (dat[cbt]|(dat[cbt+1]<<8)|(dat[cbt+2]<<16))>>(pos&7);
+    st = ((st<<btr)|val)&msk;
+    out[++i] = hu.s[st];
+    pos -= (btr = hu.n[st]);
+  }
+  if (pos != eb || i+1 != ss) err(0);
+};
+var dhu4 = function(dat, out, hu){
+  var bt=6;
+  var ss=out.length, sz1=(ss+3)>>2, sz2=sz1<<1, sz3=sz1+sz2;
+  dhu(dat.subarray(bt, bt+=dat[0]|(dat[1]<<8)), out.subarray(0,sz1), hu);
+  dhu(dat.subarray(bt, bt+=dat[2]|(dat[3]<<8)), out.subarray(sz1,sz2), hu);
+  dhu(dat.subarray(bt, bt+=dat[4]|(dat[5]<<8)), out.subarray(sz2,sz3), hu);
+  dhu(dat.subarray(bt), out.subarray(sz3), hu);
+};
+var rzb = function(dat, st, out){
+  var bt = st.b;
+  var b0 = dat[bt], btype = (b0>>1)&3;
+  st.l = b0 & 1;
+  var sz = (b0>>3)|(dat[bt+1]<<5)|(dat[bt+2]<<13);
+  var ebt = (bt += 3) + sz;
+  if (btype == 1){
+    if (bt >= dat.length) return;
+    st.b = bt+1;
+    if (out){ fillArr(out, dat[bt], st.y, st.y += sz); return out; }
+    return fillArr(new u8(sz), dat[bt]);
+  }
+  if (ebt > dat.length) return;
+  if (btype == 0){
+    st.b = ebt;
+    if (out){ out.set(dat.subarray(bt, ebt), st.y); st.y += sz; return out; }
+    return slc(dat, bt, ebt);
+  }
+  if (btype == 2){
+    var b3 = dat[bt], lbt = b3&3, sf = (b3>>2)&3;
+    var lss = b3>>4, lcs = 0, s4 = 0;
+    if (lbt < 2){
+      if (sf & 1) lss |= (dat[++bt]<<4) | ((sf&2) && (dat[++bt]<<12));
+      else lss = b3>>3;
+    } else {
+      s4 = sf;
+      if (sf < 2){ lss |= ((dat[++bt]&63)<<4); lcs = (dat[bt]>>6)|(dat[++bt]<<2); }
+      else if (sf == 2){ lss |= (dat[++bt]<<4)|((dat[++bt]&3)<<12); lcs = (dat[bt]>>2)|(dat[++bt]<<6); }
+      else { lss |= (dat[++bt]<<4)|((dat[++bt]&63)<<12); lcs = (dat[bt]>>6)|(dat[++bt]<<2)|(dat[++bt]<<10); }
+    }
+    ++bt;
+    var buf = out ? out.subarray(st.y, st.y+st.m) : new u8(st.m);
+    var spl = buf.length - lss;
+    if (lbt == 0) buf.set(dat.subarray(bt, bt += lss), spl);
+    else if (lbt == 1) fillArr(buf, dat[bt++], spl);
+    else {
+      var hu = st.h;
+      if (lbt == 2){ var hud = rhu(dat, bt); lcs += bt - (bt = hud[0]); st.h = hu = hud[1]; }
+      else if (!hu) err(0);
+      (s4 ? dhu4 : dhu)(dat.subarray(bt, bt += lcs), buf.subarray(spl), hu);
+    }
+    var ns = dat[bt++];
+    if (ns){
+      if (ns == 255) ns = (dat[bt++]|(dat[bt++]<<8)) + 0x7F00;
+      else if (ns > 127) ns = ((ns-128)<<8)|dat[bt++];
+      var scm = dat[bt++];
+      if (scm & 3) err(0);
+      var dts = [dmlt, doct, dllt];
+      for (var i=2; i>-1; --i){
+        var md = (scm>>((i<<1)+2))&3;
+        if (md == 1){
+          var rbuf = new u8([0,0,dat[bt++]]);
+          dts[i] = { s: rbuf.subarray(2,3), n: rbuf.subarray(0,1), t: new u16(rbuf.buffer,0,1), b: 0 };
+        } else if (md == 2){
+          var r = rfse(dat, bt, 9-(i&1));
+          bt = r[0]; dts[i] = r[1];
+        } else if (md == 3){
+          if (!st.t) err(0);
+          dts[i] = st.t[i];
+        }
+      }
+      var mlt = dts[0], oct = dts[1], llt = dts[2];
+      st.t = dts;
+      var lb2 = dat[ebt-1];
+      if (!lb2) err(0);
+      var spos = (ebt<<3)-8+msb(lb2)-llt.b, cbt2 = spos>>3, oubt = 0;
+      var lst = ((dat[cbt2]|(dat[cbt2+1]<<8))>>(spos&7))&((1<<llt.b)-1);
+      cbt2 = (spos -= oct.b)>>3;
+      var ost = ((dat[cbt2]|(dat[cbt2+1]<<8))>>(spos&7))&((1<<oct.b)-1);
+      cbt2 = (spos -= mlt.b)>>3;
+      var mst = ((dat[cbt2]|(dat[cbt2+1]<<8))>>(spos&7))&((1<<mlt.b)-1);
+      for (++ns; --ns;){
+        var llc = llt.s[lst], lbtr = llt.n[lst];
+        var mlc = mlt.s[mst], mbtr = mlt.n[mst];
+        var ofc = oct.s[ost], obtr = oct.n[ost];
+        cbt2 = (spos -= ofc)>>3;
+        var ofp = 1<<ofc;
+        var off = ofp + (((dat[cbt2]|(dat[cbt2+1]<<8)|(dat[cbt2+2]<<16)|(dat[cbt2+3]<<24))>>>(spos&7)) & (ofp-1));
+        cbt2 = (spos -= mlb[mlc])>>3;
+        var ml = mlbl[mlc] + (((dat[cbt2]|(dat[cbt2+1]<<8)|(dat[cbt2+2]<<16))>>(spos&7)) & ((1<<mlb[mlc])-1));
+        cbt2 = (spos -= llb[llc])>>3;
+        var ll = llbl[llc] + (((dat[cbt2]|(dat[cbt2+1]<<8)|(dat[cbt2+2]<<16))>>(spos&7)) & ((1<<llb[llc])-1));
+        cbt2 = (spos -= lbtr)>>3;
+        lst = llt.t[lst] + (((dat[cbt2]|(dat[cbt2+1]<<8))>>(spos&7)) & ((1<<lbtr)-1));
+        cbt2 = (spos -= mbtr)>>3;
+        mst = mlt.t[mst] + (((dat[cbt2]|(dat[cbt2+1]<<8))>>(spos&7)) & ((1<<mbtr)-1));
+        cbt2 = (spos -= obtr)>>3;
+        ost = oct.t[ost] + (((dat[cbt2]|(dat[cbt2+1]<<8))>>(spos&7)) & ((1<<obtr)-1));
+        if (off > 3){ st.o[2]=st.o[1]; st.o[1]=st.o[0]; st.o[0] = off -= 3; }
+        else {
+          var idx = off - (ll != 0 ? 1 : 0);
+          if (idx){
+            off = idx == 3 ? st.o[0]-1 : st.o[idx];
+            if (idx > 1) st.o[2] = st.o[1];
+            st.o[1] = st.o[0]; st.o[0] = off;
+          } else off = st.o[0];
+        }
+        for (var i2=0; i2<ll; ++i2) buf[oubt+i2] = buf[spl+i2];
+        oubt += ll; spl += ll;
+        var stin = oubt - off;
+        if (stin < 0){
+          var len2 = -stin;
+          var bs = st.e + stin;
+          if (len2 > ml) len2 = ml;
+          for (var i3=0; i3<len2; ++i3) buf[oubt+i3] = st.w[bs+i3];
+          oubt += len2; ml -= len2; stin = 0;
+        }
+        for (var i4=0; i4<ml; ++i4) buf[oubt+i4] = buf[stin+i4];
+        oubt += ml;
+      }
+      if (oubt != spl){ while (spl < buf.length) buf[oubt++] = buf[spl++]; }
+      else oubt = buf.length;
+      if (out) st.y += oubt; else buf = slc(buf, 0, oubt);
+    } else if (out){
+      st.y += lss;
+      if (spl){ for (var i5=0; i5<lss; ++i5) buf[i5] = buf[spl+i5]; }
+    } else if (spl) buf = slc(buf, spl);
+    st.b = ebt;
+    return buf;
+  }
+  err(2);
+};
+var cct = function(bufs, ol){
+  if (bufs.length == 1) return bufs[0];
+  var buf = new u8(ol);
+  for (var i=0,b=0; i<bufs.length; ++i){ var chk = bufs[i]; buf.set(chk,b); b += chk.length; }
+  return buf;
+};
+function decompress(dat, buf){
+  var bufs = [], nb = +!buf;
+  var bt = 0, ol = 0;
+  for (; dat.length;){
+    var st = rzfh(dat, nb || buf);
+    if (typeof st == 'object'){
+      if (nb){
+        buf = null;
+        if (st.w.length == st.u){ bufs.push(buf = st.w); ol += st.u; }
+      } else { bufs.push(buf); st.e = 0; }
+      for (; !st.l;){
+        var blk = rzb(dat, st, buf);
+        if (!blk) err(5);
+        if (buf) st.e = st.y;
+        else { bufs.push(blk); ol += blk.length; cpw(st.w, 0, blk.length); st.w.set(blk, st.w.length - blk.length); }
+      }
+      bt = st.b + (st.c * 4);
+    } else bt = st;
+    dat = dat.subarray(bt);
+  }
+  return cct(bufs, ol);
+}
+window.fzstd = { decompress: decompress };
+})();
+</script>
+
+<script>
+/* ============================================================================
+   RECALL — application logic (vanilla JS, no dependencies)
+   Organised as: Icons · Date utils · Storage · State · Scheduler · Derive ·
+   Renderers (Today / Calendar / Schedule / Lectures / Settings) · Events · Init
+   ========================================================================== */
+"use strict";
+
+/* ---- Inline SVG icons ---------------------------------------------------- */
+const ICONS = {
+  today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+  book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h11v16H6a2 2 0 0 0-2 2z"/><path d="M17 3h1a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2h-1"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7.1 4.2l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  chevL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  chevR:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  flame:'<svg viewBox="0 0 24 24" fill="none" stroke="none"><path d="M12 2c1 3-1 4-2 6-1 2 0 4 2 4 1.5 0 2.5-1 2.5-2.5C16 12 18 14 18 17a6 6 0 1 1-12 0c0-3 2-5 3-7 1.4-2.7 2-5 3-8z" fill="url(#fg)"/><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#ef6a52"/></linearGradient></defs></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5z"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 8l5-5 5 5M12 3v12"/></svg>',
+  cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="15" rx="2.5"/><path d="M8 3h9a2 2 0 0 1 2 2v12"/></svg>',
+  caret:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5.5v13a1 1 0 0 0 1.5.87l11-6.5a1 1 0 0 0 0-1.74l-11-6.5A1 1 0 0 0 7 5.5z"/></svg>',
+  layers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+  marker:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l6-6 4 4-6 6H9v-4z"/><path d="M4 20l3-3"/><path d="M13 5l6 6"/></svg>',
+  eraser:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H8l-6-6a2 2 0 0 1 0-2.8L13.2 2 22 10.8 12 20.8"/><path d="M8 20 3 15"/></svg>',
+  image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>',
+};
+const logoSVG = '<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="11" fill="url(#lg)"/><circle cx="9" cy="20" r="2.4" fill="#fff"/><circle cx="16" cy="20" r="2.4" fill="#fff" fill-opacity=".82"/><circle cx="25" cy="20" r="2.4" fill="#fff" fill-opacity=".6"/><circle cx="34" cy="20" r="2.4" fill="#fff" fill-opacity=".4"/><path d="M11 20h3M18 20h5M27 20h5" stroke="#fff" stroke-opacity=".45" stroke-width="1.4" stroke-linecap="round"/><defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6d6bf0"/><stop offset="1" stop-color="#4a47c9"/></linearGradient></defs></svg>';
+
+/* ---- Date utilities (work in local time, "YYYY-MM-DD" strings) ----------- */
+const DAY = 86400000;
+const pad = n => String(n).padStart(2,'0');
+function toISO(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fromISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function todayISO(){ return toISO(new Date()); }
+function addDays(iso,n){ const d=fromISO(iso); d.setDate(d.getDate()+n); return toISO(d); }
+function diffDays(a,b){ return Math.round((fromISO(a)-fromISO(b))/DAY); }
+function startOfWeek(iso){ const d=fromISO(iso); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); return toISO(d); } // Monday start
+function fmtLong(iso){ return fromISO(iso).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}); }
+function fmtShort(iso){ return fromISO(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function relativeLabel(iso){
+  const d = diffDays(iso, todayISO());
+  if(d===0) return 'Today';
+  if(d===1) return 'Tomorrow';
+  if(d===-1) return 'Yesterday';
+  if(d<0) return `${-d} days ago`;
+  if(d<7) return `In ${d} days`;
+  return fmtShort(iso);
+}
+
+/* ---- Storage ------------------------------------------------------------- */
+const STORE_KEY = 'recall.v1';
+const DEFAULT_INTERVALS = [1,3,7,14,21,30,45,60,90,120]; // ideal spacing pattern Recall expands toward (for N=10)
+const DEFAULT_SEM_START = '2026-09-19';
+const DEFAULT_SEM_END = '2027-01-19';
+const DEFAULT_NUM_REVIEWS = 10;
+const DEFAULT_CARDS_PER_SESSION = 20; // 0 = unlimited
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// A sensible expanding pattern for any number of reviews (classic list kept for 10)
+function defaultPattern(n){
+  n = clamp(Math.round(n||DEFAULT_NUM_REVIEWS), 1, 60);
+  if(n===10) return [...DEFAULT_INTERVALS];
+  const a=[]; let c=0; for(let k=1;k<=n;k++){ c+=k; a.push(c); } return a; // triangular: gaps 1,2,3,…
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ const s = JSON.parse(raw); return normalize(s); }
+  }catch(e){ console.warn('Could not read saved data', e); }
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return { lectures:[], subjects:[], stats:{sessionsCompleted:0}, settings:{
+    intervals:[...DEFAULT_INTERVALS], theme: prefersDark?'dark':'light', notifications:false,
+    semStart: DEFAULT_SEM_START, semEnd: DEFAULT_SEM_END, numReviews: DEFAULT_NUM_REVIEWS,
+    cardsPerSession: DEFAULT_CARDS_PER_SESSION
+  }};
+}
+function normalize(s){
+  s.lectures = Array.isArray(s.lectures) ? s.lectures : [];
+  s.subjects = Array.isArray(s.subjects) ? s.subjects : [];
+  s.settings = s.settings || {};
+  s.stats = (s.stats && typeof s.stats==='object') ? s.stats : {};
+  s.stats.sessionsCompleted = Number.isFinite(+s.stats.sessionsCompleted) ? Math.max(0,Math.round(+s.stats.sessionsCompleted)) : 0;
+  s.stats.totalReviewMs = Number.isFinite(+s.stats.totalReviewMs) ? Math.max(0,+s.stats.totalReviewMs) : 0;
+  s.stats.firstReviewDate = DATE_RE.test(s.stats.firstReviewDate||'') ? s.stats.firstReviewDate : null;
+  // number of reviews per item
+  s.settings.numReviews = (Number.isFinite(+s.settings.numReviews) && +s.settings.numReviews>=1)
+    ? clamp(Math.round(+s.settings.numReviews),1,60) : DEFAULT_NUM_REVIEWS;
+  s.settings.cardsPerSession = (Number.isFinite(+s.settings.cardsPerSession) && +s.settings.cardsPerSession>=1)
+    ? clamp(Math.round(+s.settings.cardsPerSession),1,500) : DEFAULT_CARDS_PER_SESSION;
+  const N = s.settings.numReviews;
+  // spacing pattern must match N; regenerate if it doesn't
+  if(!Array.isArray(s.settings.intervals) || s.settings.intervals.length!==N) s.settings.intervals = defaultPattern(N);
+  s.settings.theme = s.settings.theme==='dark'?'dark':'light';
+  s.settings.notifications = !!s.settings.notifications;
+  s.settings.semStart = DATE_RE.test(s.settings.semStart||'') ? s.settings.semStart : DEFAULT_SEM_START;
+  // migrate older "semMonths" → explicit end date; else validate end
+  if(!DATE_RE.test(s.settings.semEnd||'')){
+    if(Number.isFinite(+s.settings.semMonths)) s.settings.semEnd = addMonths(s.settings.semStart, Math.round(+s.settings.semMonths));
+    else s.settings.semEnd = DEFAULT_SEM_END;
+  }
+  if(s.settings.semEnd <= s.settings.semStart) s.settings.semEnd = addMonths(s.settings.semStart, 4); // guard
+  delete s.settings.semMonths;
+  s.lectures.forEach(l=>{ if(!Array.isArray(l.reviews) || l.reviews.length!==N) l.reviews=[]; });
+  // flashcard hierarchy integrity
+  s.subjects.forEach(sub=>{
+    sub.id = sub.id || uid('sub'); sub.name = sub.name || 'Untitled subject';
+    sub.lectures = Array.isArray(sub.lectures)?sub.lectures:[];
+    sub.lectures.forEach(lec=>{
+      lec.id = lec.id || uid('flec'); lec.name = lec.name || 'Untitled lecture';
+      lec.cards = Array.isArray(lec.cards)?lec.cards:[];
+      lec.cards.forEach(c=>{
+        c.id = c.id || uid('card');
+        c.q = typeof c.q==='string'?c.q:''; c.a = typeof c.a==='string'?c.a:'';
+        c.qImg = typeof c.qImg==='string' && c.qImg.startsWith('data:') ? c.qImg : null;
+        c.aImg = typeof c.aImg==='string' && c.aImg.startsWith('data:') ? c.aImg : null;
+        c.reps = Number.isFinite(+c.reps)?+c.reps:0;
+        c.due = DATE_RE.test(c.due||'') ? c.due : null;
+        c.history = Array.isArray(c.history)?c.history:[];
+      });
+    });
+  });
+  return s;
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ toast('Storage is full — export a backup','warn'); } }
+
+let state = loadState();
+
+/* ---- Study period -------------------------------------------------------- */
+function addMonths(iso, m){
+  const d = fromISO(iso); const day = d.getDate();
+  d.setMonth(d.getMonth()+m);
+  if(d.getDate() < day) d.setDate(0); // clamp end-of-month overflow
+  return toISO(d);
+}
+function semStartISO(){ return state.settings.semStart || DEFAULT_SEM_START; }
+function semEndISO(){ return state.settings.semEnd || DEFAULT_SEM_END; }
+function getN(){ return state.settings.numReviews || DEFAULT_NUM_REVIEWS; }
+function getCardsPerSession(){ return state.settings.cardsPerSession || DEFAULT_CARDS_PER_SESSION; }
+function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+
+/* ---- Scheduler ----------------------------------------------------------- */
+/* Distribute exactly N reviews for an item inside the study period.
+   - Lots of room → ideal expanding spaced-repetition pattern.
+   - Less room    → blend that pattern toward an even spread (compresses smoothly).
+   - Very little  → reviews stack onto the same days so all N still fit.
+   No review is ever placed after the period end date.                         */
+function uid(prefix){ return (prefix||'id')+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+function computeOffsets(span){
+  const N = getN();
+  const intervals = state.settings.intervals;
+  const idealLast = Math.max(...intervals) || 120;
+  const offsets = [];
+  if(span <= 0){
+    for(let i=0;i<N;i++) offsets.push(0);                 // studied on/after the final day → all reviews that day
+  } else if(span >= idealLast){
+    for(let i=0;i<N;i++) offsets.push(clamp(intervals[i], 1, span)); // room to spare → ideal pattern
+  } else if(span < N*2){
+    for(let i=1;i<=N;i++) offsets.push(clamp(Math.round(i*span/N), 1, span)); // tight → even (allows >1/day)
+  } else {
+    const t = span / idealLast;                           // roominess: 1 = expanding, →0 = even
+    for(let i=1;i<=N;i++){
+      const evenPos   = i * span / N;
+      const expandPos = intervals[i-1] / idealLast * span;
+      offsets.push(clamp(Math.round(t*expandPos + (1-t)*evenPos), 1, span));
+    }
+  }
+  for(let i=1;i<N;i++) if(offsets[i] < offsets[i-1]) offsets[i] = offsets[i-1]; // never go backwards
+  return offsets;
+}
+
+function scheduleReviews(studyISO, previous){
+  const start = semStartISO(), end = semEndISO();
+  const origin = clamp_iso(studyISO, start, end);
+  const span = Math.max(0, diffDays(end, origin));
+  const offsets = computeOffsets(span);
+  return offsets.map((off,i)=>{
+    const prev = previous && previous[i];
+    let due = addDays(origin, off);
+    if(due > end) due = end;
+    if(due < start) due = start;
+    return {
+      i, offset: off, due,
+      completed: prev ? !!prev.completed : false,
+      completedAt: prev && prev.completed ? prev.completedAt : null
+    };
+  });
+}
+function clamp_iso(iso, lo, hi){ return iso < lo ? lo : (iso > hi ? hi : iso); }
+
+/* ---- Flashcard scheduling (Again / Good / Easy) -------------------------- */
+/* A card advances along the same N-step plan that drives the calendar, so the
+   two engines stay in sync. The next date is always derived from the remaining
+   period and number of reviews — never hand-picked, never past the end.        */
+function newCardDue(){ const t=todayISO(), e=semEndISO(); return t>e ? e : t; } // studyable immediately
+
+/* Interval ladder derived from Settings (start, end, number of reviews).
+   Returns the day-gap between each successive review, scaled so the whole
+   ladder spans the study period. Gaps grow → expanding spaced repetition.   */
+function stepGaps(){
+  const N = getN();
+  const periodDays = Math.max(N, diffDays(semEndISO(), semStartISO()));   // total window (≥N so every step ≥1 day)
+  const base = state.settings.intervals;                                  // length N, cumulative-ish pattern
+  const last = Math.max(...base) || 1;
+  const cum = base.map(v=> Math.max(1, Math.round(v/last*periodDays)));    // scale pattern onto the real period
+  for(let i=1;i<N;i++) if(cum[i] <= cum[i-1]) cum[i] = cum[i-1]+1;         // strictly increasing
+  const gaps=[]; let prev=0;
+  for(let i=0;i<N;i++){ gaps.push(Math.max(1, cum[i]-prev)); prev=cum[i]; }
+  for(let i=1;i<N;i++) if(gaps[i] < gaps[i-1]) gaps[i] = gaps[i-1];  // never shrink → progressively longer
+  return gaps;                                                            // gaps[k] = wait after the k-th review
+}
+
+/* Grade a card. Four ratings, always distinct and progressively longer,
+   next date derived from the ladder above and never placed after the end.  */
+function gradeCard(card, grade){
+  const N = getN(), end = semEndISO(), today = todayISO();
+  const gaps = stepGaps();
+  const gapFor = k => gaps[Math.max(0, Math.min(k, N-1))];
+  let stage = Number.isFinite(+card.reps) ? +card.reps : 0;
+
+  // candidate intervals (in days) for the four ratings at this stage
+  const iAgain = 1;
+  let iHard = Math.round(gapFor(stage) * 0.5);
+  let iGood = gapFor(stage);
+  let iEasy = Math.round((gapFor(stage) + gapFor(stage+1)) * 0.9);
+  // enforce Again < Hard < Good < Easy so the four buttons are always meaningfully different
+  iHard = Math.max(iHard, iAgain+1);
+  iGood = Math.max(iGood, iHard+1);
+  iEasy = Math.max(iEasy, iGood+1);
+
+  let nextStage, gap;
+  if(grade==='again'){ nextStage = 0;                      gap = iAgain; } // lapse → back to start, see soon
+  else if(grade==='hard'){ nextStage = Math.min(stage+1,N); gap = iHard; }
+  else if(grade==='good'){ nextStage = Math.min(stage+1,N); gap = iGood; }
+  else if(grade==='easy'){ nextStage = Math.min(stage+2,N); gap = iEasy; }
+  else return;
+
+  card.reps = nextStage;
+  card.lastGrade = grade;
+  card.history = card.history || [];
+  card.history.push({ date: today, grade });
+
+  if(nextStage >= N){ card.due = null; card.graduatedAt = today; return; } // mastered for this period
+
+  let next = addDays(today, gap);
+  if(next > end) next = end;          // never after the study period
+  if(next < today) next = today;
+  card.due = next;
+}
+
+/* ---- Derived helpers ----------------------------------------------------- */
+function eachReview(cb){ state.lectures.forEach(l=> l.reviews.forEach((r,i)=> cb(l,r,i))); }
+
+/* ---- Flashcard model + CRUD --------------------------------------------- */
+function findSubject(id){ return state.subjects.find(s=>s.id===id); }
+function findFLecture(subId, lecId){ const s=findSubject(subId); return s && s.lectures.find(l=>l.id===lecId); }
+function eachCard(cb){ state.subjects.forEach(s=> s.lectures.forEach(l=> l.cards.forEach(c=> cb(s,l,c)))); }
+function allCardsFlat(){ const out=[]; eachCard((s,l,c)=>out.push({s,l,c})); return out; }
+function cardStatus(c){
+  if(c.due===null) return 'mastered';
+  if(c.reps===0 && (!c.history || c.history.length===0)) return 'new';
+  const d = diffDays(c.due, todayISO());
+  if(d<0) return 'overdue';
+  if(d===0) return 'due';
+  return 'upcoming';
+}
+function cardIsDue(c){ return c.due!==null && c.due<=todayISO(); }           // due today or overdue
+function deckDueCount(l){ return l.cards.filter(cardIsDue).length; }
+function deckNewCount(l){ return l.cards.filter(c=>cardStatus(c)==='new').length; }
+function deckStudyCount(l){ // cards that a Study session would present now (new + due reviews, no double-count)
+  const isNew=c=>cardStatus(c)==='new';
+  return l.cards.filter(c=> isNew(c) || cardIsDue(c)).length;
+}
+function subjectCardCount(s){ return s.lectures.reduce((n,l)=>n+l.cards.length,0); }
+function subjectDueCount(s){ return s.lectures.reduce((n,l)=>n+deckDueCount(l),0); }
+function subjectStudyCount(s){ return s.lectures.reduce((n,l)=>n+deckStudyCount(l),0); } // new + due across all lectures
+function findCardRef(subId, cardId){ // resolve a card + its lecture anywhere in the subject (ids are unique)
+  const s=findSubject(subId); if(!s) return null;
+  for(const lec of s.lectures){ const c=lec.cards.find(x=>x.id===cardId); if(c) return {sub:s, lec, card:c}; }
+  return null;
+}
+function totalCardsDue(){ let n=0; eachCard((s,l,c)=>{ if(cardIsDue(c)) n++; }); return n; }
+
+function addSubject(name){
+  name=(name||'').trim(); if(!name){ toast('Enter a subject name','warn'); return null; }
+  const sub={ id:uid('sub'), name, createdAt:Date.now(), lectures:[] };
+  state.subjects.push(sub); save(); return sub;
+}
+function renameSubject(id,name){ const s=findSubject(id); if(!s) return; name=(name||'').trim(); if(!name) return; s.name=name; save(); }
+async function deleteSubject(id){
+  const s=findSubject(id); if(!s) return;
+  const n=subjectCardCount(s);
+  const ok=await askConfirm('Delete subject', `“${escapeHTML(s.name)}” with ${s.lectures.length} lecture(s) and ${n} card(s) will be removed.`, 'Delete', true);
+  if(!ok) return;
+  state.subjects=state.subjects.filter(x=>x.id!==id);
+  if(fcSelSubject===id){ fcSelSubject=null; fcSelLecture=null; }
+  save(); render(); toast('Subject deleted');
+}
+function addFLecture(subId,name){
+  const s=findSubject(subId); if(!s) return null;
+  name=(name||'').trim(); if(!name){ toast('Enter a lecture name','warn'); return null; }
+  const lec={ id:uid('flec'), name, createdAt:Date.now(), cards:[] };
+  s.lectures.push(lec); save(); return lec;
+}
+function renameFLecture(subId,lecId,name){ const l=findFLecture(subId,lecId); if(!l) return; name=(name||'').trim(); if(!name) return; l.name=name; save(); }
+async function deleteFLecture(subId,lecId){
+  const l=findFLecture(subId,lecId); if(!l) return;
+  const ok=await askConfirm('Delete lecture', `“${escapeHTML(l.name)}” and its ${l.cards.length} card(s) will be removed.`, 'Delete', true);
+  if(!ok) return;
+  const s=findSubject(subId); s.lectures=s.lectures.filter(x=>x.id!==lecId);
+  if(fcSelLecture===lecId) fcSelLecture=null;
+  save(); render(); toast('Lecture deleted');
+}
+function duplicateFLecture(subId,lecId){
+  const s=findSubject(subId), l=findFLecture(subId,lecId); if(!s||!l) return;
+  const copy={ id:uid('flec'), name:l.name+' (copy)', createdAt:Date.now(),
+    cards:l.cards.map(c=>({ id:uid('card'), q:c.q, a:c.a, reps:0, due:newCardDue(), history:[] })) };
+  const idx=s.lectures.findIndex(x=>x.id===lecId);
+  s.lectures.splice(idx+1,0,copy); save(); render(); toast('Lecture duplicated');
+}
+function addCard(subId,lecId,q,a,qImg,aImg){
+  const l=findFLecture(subId,lecId); if(!l) return false;
+  q=(q||'').trim(); a=(a||'').trim();
+  if(!q && !qImg){ toast('Add a question (text or image)','warn'); return false; }
+  if(!a && !aImg){ toast('Add an answer (text or image)','warn'); return false; }
+  l.cards.push({ id:uid('card'), q, a, qImg:qImg||null, aImg:aImg||null, reps:0, due:newCardDue(), history:[], createdAt:Date.now() });
+  save(); return true;
+}
+function updateCard(subId,lecId,cardId,q,a,qImg,aImg){
+  const l=findFLecture(subId,lecId); if(!l) return;
+  const c=l.cards.find(x=>x.id===cardId); if(!c) return;
+  q=(q||'').trim(); a=(a||'').trim();
+  const finalQImg = qImg===undefined ? c.qImg : qImg;
+  const finalAImg = aImg===undefined ? c.aImg : aImg;
+  if(!q && !finalQImg){ toast('Add a question (text or image)','warn'); return false; }
+  if(!a && !finalAImg){ toast('Add an answer (text or image)','warn'); return false; }
+  c.q=q; c.a=a; c.qImg=finalQImg; c.aImg=finalAImg; save(); return true;
+}
+function deleteCard(subId,lecId,cardId){
+  const l=findFLecture(subId,lecId); if(!l) return;
+  l.cards=l.cards.filter(x=>x.id!==cardId); save(); render();
+}
+/* Bulk text import: each line is one card. Accepts tab, " | ", ";" or " - " between Q and A. */
+function parseBulk(text){
+  const out=[]; const lines=(text||'').split(/\r?\n/);
+  for(let raw of lines){
+    const line=raw.trim(); if(!line) continue;
+    let q,a;
+    let m;
+    if(line.includes('\t')){ const p=line.split('\t'); q=p[0]; a=p.slice(1).join(' ').trim(); }
+    else if((m=line.match(/^(.*?)\s*\|\s*(.+)$/))){ q=m[1]; a=m[2]; }
+    else if((m=line.match(/^(.*?)\s*;\s*(.+)$/))){ q=m[1]; a=m[2]; }
+    else if((m=line.match(/^(.*?)\s+-\s+(.+)$/))){ q=m[1]; a=m[2]; }
+    else { continue; } // no separator → skip (validation handled by caller count)
+    q=q.trim(); a=a.trim();
+    if(q && a) out.push({q,a});
+  }
+  return out;
+}
+function bulkAddCards(subId,lecId,text){
+  const l=findFLecture(subId,lecId); if(!l) return 0;
+  const parsed=parseBulk(text); if(!parsed.length) return 0;
+  parsed.forEach(p=> l.cards.push({ id:uid('card'), q:p.q, a:p.a, qImg:null, aImg:null, reps:0, due:newCardDue(), history:[], createdAt:Date.now() }));
+  save(); return parsed.length;
+}
+
+/* ---- Proper CSV/TSV parser (handles quoted fields, embedded commas/newlines) --- */
+function parseDelimited(text, delim){
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQuotes){
+      if(ch==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+      else field+=ch;
+    } else {
+      if(ch==='"') inQuotes=true;
+      else if(ch===delim){ row.push(field); field=''; }
+      else if(ch==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(ch==='\r'){ /* skip, \n follows */ }
+      else field+=ch;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=> r.some(c=>c.trim()!==''));
+}
+/* Detects comma vs tab vs semicolon by sampling the first line. Skips an obvious header row. */
+function parseCSVorTSV(text){
+  const firstLine=(text.split(/\r?\n/)[0]||'');
+  const delim = firstLine.includes('\t') ? '\t' : (firstLine.split(';').length > firstLine.split(',').length ? ';' : ',');
+  let rows=parseDelimited(text, delim);
+  if(rows.length && /^(front|question|q)$/i.test((rows[0][0]||'').trim())) rows=rows.slice(1); // drop header
+  return rows.map(r=>({ q:(r[0]||'').trim(), a:(r[1]||'').trim() })).filter(x=>x.q||x.a);
+}
+/* Generic importer used by CSV and .apkg import paths: array of {q,a,qImg,aImg} */
+function bulkAddCardObjects(subId,lecId,items){
+  const l=findFLecture(subId,lecId); if(!l) return 0;
+  let n=0;
+  items.forEach(p=>{
+    const q=(p.q||'').trim(), a=(p.a||'').trim();
+    if(!q && !p.qImg) return; if(!a && !p.aImg) return;
+    l.cards.push({ id:uid('card'), q, a, qImg:p.qImg||null, aImg:p.aImg||null, reps:0, due:newCardDue(), history:[], createdAt:Date.now() });
+    n++;
+  });
+  if(n) save();
+  return n;
+}
+
+function flashcardHistoryByDate(){
+  const map={};
+  state.subjects.forEach(s=>s.lectures.forEach(l=>l.cards.forEach(c=>{
+    (c.history||[]).forEach(h=>{ if(h && h.date) map[h.date]=(map[h.date]||0)+1; });
+  })));
+  return map;
+}
+function computeCardStreak(){
+  const map=flashcardHistoryByDate();
+  if(Object.keys(map).length===0) return 0;
+  let cursor=todayISO();
+  if(!map[cursor]) cursor=addDays(cursor,-1); // streak can still count if today not done yet
+  if(!map[cursor]) return 0;
+  let n=0;
+  while(map[cursor]){ n++; cursor=addDays(cursor,-1); }
+  return n;
+}
+function fmtDuration(ms){
+  const totalMin=Math.round(ms/60000);
+  const h=Math.floor(totalMin/60), m=totalMin%60;
+  if(h>0) return `${h}h ${m}m`;
+  if(totalMin>0) return `${totalMin}m`;
+  return ms>0 ? '<1m' : '0m';
+}
+function computeCardStats(){
+  const map=flashcardHistoryByDate();
+  const today=todayISO();
+  const todayCount=map[today]||0;
+  let sum=0, activeDays=0;
+  for(let i=0;i<30;i++){ const d=addDays(today,-i); if(map[d]){ sum+=map[d]; activeDays++; } }
+  const avgPerActiveDay = activeDays? Math.round(sum/activeDays) : 0;
+  const totalReviewMs = (state.stats && state.stats.totalReviewMs) || 0;
+  const firstReviewDate = state.stats && state.stats.firstReviewDate;
+  const daysSinceStart = firstReviewDate ? Math.max(1, diffDays(today, firstReviewDate)+1) : 0;
+  const avgTimePerDayMs = daysSinceStart ? totalReviewMs/daysSinceStart : 0;
+  return {
+    streak: computeCardStreak(),
+    todayCount,
+    avgPerActiveDay,
+    sessionsCompleted: (state.stats && state.stats.sessionsCompleted) || 0,
+    totalReviewMs,
+    avgTimePerDayMs,
+    daysSinceStart,
+    map
+  };
+}
+/* GitHub-style contribution calendar: weeks as columns, Mon–Sun rows, ~18 weeks ending today */
+function cardHeatmapHTML(){
+  const weeks=18, today=todayISO();
+  const map=flashcardHistoryByDate();
+  let start=addDays(today, -(weeks*7-1));
+  const startDow=(fromISO(start).getDay()+6)%7; // 0=Mon
+  start=addDays(start, -startDow);
+  const days=[]; let cursor=start;
+  while(cursor<=today){ days.push(cursor); cursor=addDays(cursor,1); }
+  while(days.length%7!==0) days.push(addDays(days[days.length-1],1));
+  const cols=[]; for(let i=0;i<days.length;i+=7) cols.push(days.slice(i,i+7));
+  const maxCount=Math.max(1, ...Object.values(map));
+  const level=n=>{ if(!n) return 0; const r=n/maxCount; return r>0.75?4:r>0.5?3:r>0.25?2:1; };
+  const colsHTML=cols.map(col=>`<div class="heat-col">${col.map(d=>{
+      if(d>today) return `<div class="heat-cell heat-empty"></div>`;
+      const n=map[d]||0;
+      return `<div class="heat-cell heat-${level(n)}" title="${fmtShort(d)}: ${n} card${n===1?'':'s'} reviewed"></div>`;
+    }).join('')}</div>`).join('');
+  return `<div class="heat-grid">${colsHTML}</div>`;
+}
+function flashcardsStatsHTML(){
+  const st=computeCardStats();
+  return `<div class="card card-pad" style="margin-bottom:16px">
+    <div class="card-head"><h3>Stats</h3></div>
+    <div class="fc-stats-grid">
+      <div class="fc-stat"><div class="n">${st.streak}</div><div class="t">Day streak</div></div>
+      <div class="fc-stat"><div class="n">${st.todayCount}</div><div class="t">Cards today</div></div>
+      <div class="fc-stat"><div class="n">${st.avgPerActiveDay}</div><div class="t">Avg/active day (30d)</div></div>
+      <div class="fc-stat"><div class="n">${st.sessionsCompleted}</div><div class="t">Sessions completed</div></div>
+      <div class="fc-stat"><div class="n">${fmtDuration(st.totalReviewMs)}</div><div class="t">Total time reviewing</div></div>
+      <div class="fc-stat"><div class="n">${fmtDuration(st.avgTimePerDayMs)}</div><div class="t">Avg time/day since start${st.daysSinceStart?` (${st.daysSinceStart}d)`:''}</div></div>
+    </div>
+    <div class="heat-wrap">${cardHeatmapHTML()}</div>
+  </div>`;
+}
+function reviewStatus(r){
+  if(r.completed) return 'completed';
+  const d = diffDays(r.due, todayISO());
+  if(d<0) return 'overdue';
+  if(d===0) return 'due';
+  return 'upcoming';
+}
+function lectureProgress(l){ const done=l.reviews.filter(r=>r.completed).length; return { done, total:l.reviews.length, pct:Math.round(done/l.reviews.length*100) }; }
+function lectureComplete(l){ return l.reviews.every(r=>r.completed); }
+
+// Flatten reviews into task objects for lists
+function allTasks(){
+  const out=[];
+  state.lectures.forEach(l=> l.reviews.forEach(r=> out.push({lec:l, r, status:reviewStatus(r)})));
+  return out;
+}
+function tasksForDate(iso){ return allTasks().filter(t=> t.r.due===iso); }
+
+function computeStats(){
+  const today = todayISO();
+  let dueToday=0, overdue=0, completed=0, upcomingWeek=0, totalReviews=0;
+  const weekEnd = addDays(today,6);
+  eachReview((l,r)=>{
+    totalReviews++;
+    const st = reviewStatus(r);
+    if(st==='completed') completed++;
+    else if(st==='overdue') overdue++;
+    else if(st==='due') dueToday++;
+    if(!r.completed && r.due>=today && r.due<=weekEnd) upcomingWeek++;
+  });
+  const totalLectures = state.lectures.length;
+  const lecturesDone = state.lectures.filter(lectureComplete).length;
+  const pct = totalReviews? Math.round(completed/totalReviews*100):0;
+  return { totalLectures, lecturesDone, dueToday, overdue, completed, upcomingWeek, totalReviews, pct };
+}
+
+function computeStreak(){
+  const days = new Set();
+  eachReview((l,r)=>{ if(r.completed && r.completedAt) days.add(r.completedAt); });
+  if(days.size===0) return 0;
+  let cursor = todayISO();
+  if(!days.has(cursor)) cursor = addDays(cursor,-1); // streak can still count if today not done yet
+  if(!days.has(cursor)) return 0;
+  let n=0;
+  while(days.has(cursor)){ n++; cursor=addDays(cursor,-1); }
+  return n;
+}
+
+/* ---- Toasts -------------------------------------------------------------- */
+function toast(msg, kind){
+  const el=document.createElement('div');
+  el.className='toast'+(kind?(' '+kind):'');
+  const ico = kind==='ok'?ICONS.check : kind==='warn'?ICONS.bell : '';
+  el.innerHTML = ico + '<span>'+msg+'</span>';
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .3s, transform .3s'; el.style.opacity='0'; el.style.transform='translateY(8px)'; setTimeout(()=>el.remove(),300); }, 2600);
+}
+
+/* ---- Confirmation dialog (reliable replacement for window.confirm) ------- */
+let _confirmResolve=null;
+function askConfirm(title, msgHTML, okLabel, danger){
+  return new Promise(resolve=>{
+    _confirmResolve=resolve;
+    document.getElementById('confirmTitle').textContent=title;
+    document.getElementById('confirmMsg').innerHTML=msgHTML;
+    const ok=document.getElementById('confirmOK');
+    ok.textContent=okLabel||'Confirm';
+    ok.className='btn '+(danger?'btn-danger':'btn-primary');
+    document.getElementById('confirmModal').classList.add('open');
+    setTimeout(()=>ok.focus(),60);
+  });
+}
+function closeConfirm(val){
+  document.getElementById('confirmModal').classList.remove('open');
+  if(_confirmResolve){ const r=_confirmResolve; _confirmResolve=null; r(val); }
+}
+
+/* ---- Prompt dialog (rename) --------------------------------------------- */
+let _promptResolve=null;
+function askPrompt(title, value, okLabel){
+  return new Promise(resolve=>{
+    _promptResolve=resolve;
+    document.getElementById('promptTitle').textContent=title;
+    const inp=document.getElementById('promptInput');
+    inp.value=value||'';
+    document.getElementById('promptOK').textContent=okLabel||'Save';
+    document.getElementById('promptModal').classList.add('open');
+    setTimeout(()=>{ inp.focus(); inp.select(); },60);
+  });
+}
+function closePrompt(val){
+  document.getElementById('promptModal').classList.remove('open');
+  if(_promptResolve){ const r=_promptResolve; _promptResolve=null; r(val); }
+}
+
+/* =====================================================================
+   RENDERERS
+   ===================================================================== */
+let currentView='today';
+let calCursor = (()=>{ const base = todayISO() < semStartISO() ? fromISO(semStartISO()) : new Date(); return {y:base.getFullYear(), m:base.getMonth()}; })();
+let selectedDay = todayISO() < semStartISO() ? semStartISO() : todayISO();
+let scheduleFilter='today';
+let scheduleSearch='';
+let lectureSearch='';
+let fcSelSubject=null;     // selected subject id in Flashcards view
+let fcSelLecture=null;     // selected lecture id in Flashcards view
+let fcSearch='';           // card search within a deck
+let reviewSession=null;    // { subId, lecId, queue:[cardId], idx, revealed, total, again }
+
+function render(){
+  renderToday();
+  renderCalendar();
+  renderFlashcards();
+  renderSchedule();
+  renderLectures();
+  renderSettings();
+  renderBadges();
+}
+
+/* ---- TODAY / Dashboard --------------------------------------------------- */
+function renderToday(){
+  const el=document.getElementById('view-today');
+  const s=computeStats();
+  const streak=computeStreak();
+  const today=todayISO();
+  const start=semStartISO(), end=semEndISO();
+  let banner='';
+  if(today < start){
+    banner=`<div class="card card-pad" style="margin-bottom:18px;display:flex;gap:13px;align-items:center;border-left:4px solid var(--primary)">
+      <span style="color:var(--primary-ink);flex:0 0 auto;width:22px">${ICONS.cal}</span>
+      <div><b>Semester starts ${fmtLong(start)}</b><div class="muted" style="font-size:13px">Add lectures now — every review is scheduled inside the window, ending ${fmtShort(end)}. Daily tasks appear once the semester begins.</div></div></div>`;
+  } else if(today > end){
+    banner=`<div class="card card-pad" style="margin-bottom:18px;display:flex;gap:13px;align-items:center;border-left:4px solid var(--c-completed)">
+      <span style="color:var(--c-completed-ink);flex:0 0 auto;width:22px">${ICONS.check}</span>
+      <div><b>Semester complete</b><div class="muted" style="font-size:13px">The review window (ended ${fmtShort(end)}) is over. Adjust the semester in Settings to plan the next term.</div></div></div>`;
+  }
+  const dueTasks = tasksForDate(today).sort((a,b)=> a.r.completed - b.r.completed);
+  const overdueTasks = allTasks().filter(t=>t.status==='overdue').sort((a,b)=> a.r.due.localeCompare(b.r.due));
+
+  if(state.lectures.length===0){
+    el.innerHTML = viewHead('Welcome', 'Today') + banner + emptyState(
+      'Start your study plan',
+      `Add the first lecture you studied. Recall fits 10 spaced reviews into the semester window (${fmtShort(start)} – ${fmtShort(end)}) automatically — you never schedule a date by hand.`,
+      'Add your first lecture', 'openAdd'
+    );
+    return;
+  }
+
+  el.innerHTML = `
+    ${viewHead(fmtLong(today), 'Today')}
+    ${banner}
+    <div class="stats">
+      ${stat(s.totalLectures,'Total lectures','')}
+      ${stat(s.lecturesDone,'Lectures mastered','accent-done')}
+      ${stat(s.dueToday,'Due today','accent-due')}
+      ${stat(s.overdue,'Overdue','accent-over')}
+      ${stat(s.completed,'Reviews completed','accent-done')}
+      ${stat(s.upcomingWeek,'Due this week','accent-up')}
+    </div>
+    <div class="dash-grid">
+      <div class="stack">
+        <div class="card card-pad today-panel">
+          <div class="progress-ring-wrap">
+            ${donut(s.pct)}
+            <div class="ring-meta">
+              <div class="big">${s.completed}<span class="muted" style="font-size:15px;font-weight:500"> / ${s.totalReviews}</span></div>
+              <div class="small">reviews completed across the syllabus</div>
+            </div>
+          </div>
+          <div class="card-head"><h3>Today&rsquo;s reviews</h3><span class="hint">${dueTasks.filter(t=>!t.r.completed).length} left</span></div>
+          <div class="task-list" id="todayTasks">
+            ${ dueTasks.length ? dueTasks.map(taskRow).join('') :
+               `<div class="empty" style="padding:22px"><div>${ICONS.check}</div><h4>All clear for today</h4><p>No reviews scheduled. Add a lecture or enjoy the break.</p></div>` }
+          </div>
+        </div>
+
+        ${ overdueTasks.length ? `
+        <div class="card card-pad">
+          <div class="card-head"><h3 style="color:var(--c-overdue-ink)">Overdue</h3><span class="hint">${overdueTasks.length} to catch up</span></div>
+          <div class="task-list">${overdueTasks.slice(0,8).map(taskRow).join('')}</div>
+          ${overdueTasks.length>8?`<p class="faint" style="font-size:12.5px;margin:10px 0 0">+${overdueTasks.length-8} more in Schedule</p>`:''}
+        </div>`:'' }
+      </div>
+
+      <div class="stack">
+        <div class="card card-pad">
+          <div class="streak">
+            <span class="flame">${ICONS.flame}</span>
+            <div><div class="n">${streak} day${streak===1?'':'s'}</div><div class="t">${streak>0?'Review streak — keep it alive':'Complete a review to start a streak'}</div></div>
+          </div>
+        </div>
+        ${flashcardsPanel()}
+        <div class="card card-pad">
+          <div class="card-head"><h3>Study activity</h3><span class="hint">last 18 weeks</span></div>
+          ${heatmap()}
+        </div>
+        <div class="card card-pad">
+          <div class="card-head"><h3>Workload ahead</h3><span class="hint">reviews / week</span></div>
+          ${workloadBars()}
+        </div>
+      </div>
+    </div>`;
+}
+
+function flashcardsPanel(){
+  const totalCards = allCardsFlat().length;
+  if(totalCards===0){
+    return `<div class="card card-pad">
+      <div class="card-head"><h3>Flashcards</h3></div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">Build Anki-style decks that schedule themselves inside your study period.</p>
+      <button class="btn btn-ghost btn-sm" data-go="flashcards">${ICONS.cards}Open Flashcards</button>
+    </div>`;
+  }
+  const due=totalCardsDue();
+  // find first deck with due cards for a one-tap study button
+  let target=null; eachCard((s,l,c)=>{ if(!target && cardIsDue(c)) target={s,l}; });
+  const mastered=allCardsFlat().filter(x=>cardStatus(x.c)==='mastered').length;
+  return `<div class="card card-pad">
+    <div class="card-head"><h3>Flashcards due</h3><span class="hint">${totalCards} cards</span></div>
+    <div class="progress-ring-wrap" style="margin:2px 0 14px">
+      <div style="font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1;color:${due?'var(--c-due-ink)':'var(--c-completed-ink)'}">${due}</div>
+      <div class="ring-meta"><div class="small">${due?'cards ready to review now':'all caught up — nothing due'}</div>
+      <div class="small faint">${mastered} mastered</div></div>
+    </div>
+    ${ target ? `<button class="btn btn-primary btn-sm" data-studyjump-sub="${target.s.id}" data-studyjump-lec="${target.l.id}">${ICONS.play}Study now</button>`
+       : `<button class="btn btn-ghost btn-sm" data-go="flashcards">${ICONS.cards}Open Flashcards</button>` }
+  </div>`;
+}
+
+function taskRow(t){
+  const st=t.status;
+  const badge = `<span class="badge s-${st}">${st==='due'?'Due today':st.charAt(0).toUpperCase()+st.slice(1)}</span>`;
+  const prog=lectureProgress(t.lec);
+  return `<label class="task ${t.r.completed?'done':''}">
+      <input type="checkbox" class="check" data-id="${t.lec.id}" data-i="${t.r.i}" ${t.r.completed?'checked':''} />
+      <div class="task-main">
+        <div class="task-name">${escapeHTML(t.lec.name)}</div>
+        <div class="task-sub"><span class="rep-tag">Review ${t.r.i+1}/10</span>${badge}<span>${relativeLabel(t.r.due)}</span></div>
+      </div>
+    </label>`;
+}
+
+function stat(num,label,accent){
+  return `<div class="stat ${accent||''}"><span class="spark"></span><div class="num">${num}</div><div class="lbl">${label}</div></div>`;
+}
+
+function donut(pct){
+  const r=30, c=2*Math.PI*r, off=c*(1-pct/100);
+  return `<svg class="ring" viewBox="0 0 78 78">
+    <circle cx="39" cy="39" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="8"/>
+    <circle cx="39" cy="39" r="${r}" fill="none" stroke="var(--c-completed)" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 39 39)"/>
+    <text x="39" y="44" text-anchor="middle" font-family="var(--font-display)" font-size="18" font-weight="700" fill="var(--ink)">${pct}%</text>
+  </svg>`;
+}
+
+function heatmap(){
+  // 18 weeks ending this week (Monday-based columns)
+  const byDay={};
+  eachReview((l,r)=>{ if(r.completed&&r.completedAt) byDay[r.completedAt]=(byDay[r.completedAt]||0)+1; });
+  const weeks=18;
+  const thisMon=startOfWeek(todayISO());
+  const start=addDays(thisMon, -7*(weeks-1));
+  let cols='';
+  for(let w=0; w<weeks; w++){
+    let cells='';
+    for(let d=0; d<7; d++){
+      const iso=addDays(start, w*7+d);
+      const future = iso>todayISO();
+      const n=byDay[iso]||0;
+      const lvl = future?'' : n===0?'0' : n<=2?'1' : n<=4?'2' : n<=6?'3' : '4';
+      const title = future?'':`${n} review${n===1?'':'s'} · ${fmtShort(iso)}`;
+      cells+=`<div class="hm-cell" data-l="${lvl}" title="${title}" style="${future?'visibility:hidden':''}"></div>`;
+    }
+    cols+=`<div class="hm-col">${cells}</div>`;
+  }
+  return `<div class="heatmap">${cols}</div>
+    <div class="hm-legend">Less <span class="hm-cell" data-l="0"></span><span class="hm-cell" data-l="1"></span><span class="hm-cell" data-l="2"></span><span class="hm-cell" data-l="3"></span><span class="hm-cell" data-l="4"></span> More</div>`;
+}
+
+function workloadBars(){
+  const weeks=8;
+  const thisMon=startOfWeek(todayISO());
+  const counts=new Array(weeks).fill(0);
+  eachReview((l,r)=>{
+    if(r.completed) return;
+    const w=Math.floor(diffDays(r.due, thisMon)/7);
+    if(w>=0 && w<weeks) counts[w]++;
+  });
+  const max=Math.max(1,...counts);
+  let bars='';
+  for(let w=0; w<weeks; w++){
+    const h=Math.round(counts[w]/max*100);
+    const lbl = w===0?'This wk':fmtShort(addDays(thisMon,w*7));
+    bars+=`<div class="bar-col"><span class="bar-val">${counts[w]||''}</span><div class="bar" style="height:${h}%"></div><span class="bar-lbl">${lbl}</span></div>`;
+  }
+  return `<div class="bars">${bars}</div>`;
+}
+
+/* ---- CALENDAR ------------------------------------------------------------ */
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function statusColorVar(st){ return st==='completed'?'--c-completed':st==='overdue'?'--c-overdue':st==='due'?'--c-due':'--c-upcoming'; }
+
+function renderCalendar(){
+  const el=document.getElementById('view-calendar');
+  const {y,m}=calCursor;
+  const first=new Date(y,m,1);
+  const startOffset=(first.getDay()+6)%7; // Monday-based
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const today=todayISO();
+
+  // Build date -> events index once
+  const index={};
+  eachReview((l,r)=>{ (index[r.due]=index[r.due]||[]).push({l,r,type:'review',status:reviewStatus(r)}); });
+  state.lectures.forEach(l=>{ (index[l.dateStudied]=index[l.dateStudied]||[]).push({l,type:'new',status:'new'}); });
+  // flashcard next-due dates appear on the calendar too, so both engines share one schedule
+  eachCard((s,l,c)=>{ if(c.due){ const st=cardStatus(c); (index[c.due]=index[c.due]||[]).push({sub:s,flec:l,card:c,type:'card',status:(st==='mastered'||st==='new')?'upcoming':st}); } });
+
+  let cells='';
+  // leading days from prev month
+  for(let i=0;i<startOffset;i++){
+    const d=new Date(y,m,1-(startOffset-i));
+    cells+=calCell(toISO(d), d.getDate(), true, index, today);
+  }
+  for(let day=1; day<=daysInMonth; day++){
+    const iso=toISO(new Date(y,m,day));
+    cells+=calCell(iso, day, false, index, today);
+  }
+  // trailing to complete grid
+  const total=startOffset+daysInMonth;
+  const trail=(7-(total%7))%7;
+  for(let i=1;i<=trail;i++){
+    const d=new Date(y,m+1,i);
+    cells+=calCell(toISO(d), d.getDate(), true, index, today);
+  }
+
+  el.innerHTML = `
+    ${viewHead('Every review, mapped across four months', 'Calendar')}
+    <div class="card card-pad">
+      <div class="cal-toolbar">
+        <button class="icon-btn" id="calPrev" aria-label="Previous month">${ICONS.chevL}</button>
+        <span class="cal-month">${MONTHS[m]} ${y}</span>
+        <button class="icon-btn" id="calNext" aria-label="Next month">${ICONS.chevR}</button>
+        <button class="btn btn-ghost btn-sm" id="calToday">Today</button>
+        <div class="cal-legend">
+          <span><i style="background:var(--c-new)"></i>New</span>
+          <span><i style="background:var(--c-upcoming)"></i>Review</span>
+          <span><i style="background:var(--c-due)"></i>Due</span>
+          <span><i style="background:var(--c-completed)"></i>Done</span>
+          <span><i style="background:var(--c-overdue)"></i>Overdue</span>
+        </div>
+      </div>
+      <div class="calendar">
+        ${DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('')}
+        ${cells}
+      </div>
+    </div>
+    <div id="dayDetail" class="day-detail"></div>`;
+
+  renderDayDetail(index);
+}
+
+function calCell(iso, dayNum, dim, index, today){
+  const evs=(index[iso]||[]);
+  const cls=['cal-cell'];
+  if(dim) cls.push('dim');
+  if(iso===today) cls.push('today');
+  if(iso===selectedDay) cls.push('selected');
+  // up to 3 event lines + dots
+  const evName = e => e.type==='new' ? '+ '+e.l.name : e.type==='card' ? '🃏 '+e.flec.name : e.l.name;
+  const lines = evs.slice(0,3).map(e=>{
+    const cv = e.type==='new'?'--c-new':statusColorVar(e.status);
+    return `<div class="cal-ev"><i style="background:var(${cv})"></i>${escapeHTML(evName(e))}</div>`;
+  }).join('');
+  const more = evs.length>3?`<div class="cal-more">+${evs.length-3} more</div>`:'';
+  const dots = evs.length?`<div class="cal-dots">${evs.slice(0,6).map(e=>{const cv=e.type==='new'?'--c-new':statusColorVar(e.status);return `<i style="background:var(${cv})"></i>`}).join('')}</div>`:'';
+  return `<div class="${cls.join(' ')}" data-day="${iso}">
+      <span class="cal-daynum">${dayNum}</span>
+      <div class="cal-events">${lines}${more}</div>
+      ${dots}
+    </div>`;
+}
+
+function renderDayDetail(index){
+  const el=document.getElementById('dayDetail');
+  if(!el) return;
+  const evs=(index?index[selectedDay]:null) || tasksForDate(selectedDay).map(t=>({l:t.lec,r:t.r,type:'review',status:t.status}));
+  const reviews=evs.filter(e=>e.type==='review');
+  const news=evs.filter(e=>e.type==='new');
+  const cardEvs=evs.filter(e=>e.type==='card');
+  const cardsBySubLec={};
+  cardEvs.forEach(e=>{ const k=e.sub.id+'|'+e.flec.id; (cardsBySubLec[k]=cardsBySubLec[k]||{sub:e.sub,flec:e.flec,n:0}).n++; });
+  const cardLine = Object.values(cardsBySubLec).map(g=>
+    `<button class="task" data-cardjump-sub="${g.sub.id}" data-cardjump-lec="${g.flec.id}" style="width:100%;text-align:left;border:none;cursor:pointer">
+       <span class="card-status-dot s-due" style="margin-top:0"></span>
+       <div class="task-main"><div class="task-name">${escapeHTML(g.flec.name)}</div>
+       <div class="task-sub"><span class="rep-tag">${g.n} card${g.n===1?'':'s'}</span><span>${escapeHTML(g.sub.name)}</span></div></div>
+     </button>`).join('');
+  el.innerHTML = `
+    <div class="card card-pad">
+      <div class="card-head">
+        <div><h3>${fmtLong(selectedDay)}</h3><div class="when">${relativeLabel(selectedDay)}</div></div>
+      </div>
+      ${ news.length? `<p class="muted" style="font-size:13px;margin:0 0 12px">${news.map(n=>'🆕 Studied <b>'+escapeHTML(n.l.name)+'</b>').join(' · ')}</p>`:'' }
+      ${ cardLine ? `<div class="task-list" style="margin-bottom:${reviews.length?'12px':'0'}">${cardLine}</div>`:'' }
+      ${ reviews.length ? `<div class="task-list">${reviews.map(e=>taskRow({lec:e.l,r:e.r,status:e.status})).join('')}</div>`
+         : (cardLine? '' : `<div class="empty" style="padding:18px"><h4 style="font-size:15px">Nothing scheduled</h4><p>Pick another date on the calendar.</p></div>`) }
+    </div>`;
+}
+
+/* =====================================================================
+   FLASHCARDS  (Subjects → Lectures → Cards, Anki-style review)
+   ===================================================================== */
+function renderFlashcards(){
+  const el=document.getElementById('view-flashcards');
+  const lec = fcSelLecture ? findFLecture(fcSelSubject, fcSelLecture) : null;
+  if(lec===null) fcSelLecture=null;
+
+  el.innerHTML = `
+    ${viewHead('Subjects, lectures and cards — in sync with your plan', 'Flashcards')}
+    ${flashcardsStatsHTML()}
+    <div class="fc-layout">
+      <div class="fc-tree ${fcSelLecture?'has-selection':''}">
+        <div class="fc-add-row">
+          <input type="text" id="newSubject" placeholder="New subject (e.g. Obstetrics)" autocomplete="off" />
+          <button class="btn btn-primary btn-sm" id="addSubjectBtn">${ICONS.plus}</button>
+        </div>
+        <div id="subjTree">${renderSubjectTree()}</div>
+      </div>
+      <div class="deck-panel ${fcSelLecture?'':'no-selection'}">
+        ${ lec ? renderDeck(lec) : renderDeckEmpty() }
+      </div>
+    </div>`;
+}
+
+function renderSubjectTree(){
+  if(state.subjects.length===0){
+    return `<div class="empty" style="padding:30px 16px">${ICONS.layers}<h4>No subjects yet</h4><p>Add a subject above to start building decks.</p></div>`;
+  }
+  return state.subjects.map(s=>{
+    const open = s.id===fcSelSubject;
+    const due = subjectDueCount(s);
+    const lectures = s.lectures.map(l=>{
+      const dueN=deckDueCount(l), total=l.cards.length;
+      return `<div class="flec ${l.id===fcSelLecture?'active':''}" data-sub="${s.id}" data-lec="${l.id}">
+          <span class="flec-dot"></span>
+          <span class="flec-name">${escapeHTML(l.name)}</span>
+          <span class="flec-count ${dueN?'has-due':''}">${dueN?dueN+' due':total+' cards'}</span>
+          <span class="flec-actions">
+            <button class="mini-btn" data-lrename="${l.id}" data-sub="${s.id}" title="Rename">${ICONS.edit}</button>
+            <button class="mini-btn" data-ldup="${l.id}" data-sub="${s.id}" title="Duplicate">${ICONS.copy}</button>
+            <button class="mini-btn" data-ldel="${l.id}" data-sub="${s.id}" title="Delete">${ICONS.trash}</button>
+          </span>
+        </div>`;
+    }).join('');
+    return `<div class="subj ${open?'open':''}">
+        <div class="subj-head" data-subtoggle="${s.id}">
+          <span class="subj-caret">${ICONS.caret}</span>
+          <span class="subj-name">${escapeHTML(s.name)}</span>
+          ${due?`<span class="subj-due">${due}</span>`:''}
+          <span class="subj-actions">
+            <button class="mini-btn" data-srename="${s.id}" title="Rename">${ICONS.edit}</button>
+            <button class="mini-btn" data-sdel="${s.id}" title="Delete">${ICONS.trash}</button>
+          </span>
+        </div>
+        <div class="subj-lectures">
+          ${ subjectStudyCount(s) ? `<button class="btn btn-primary btn-sm fc-subj-study" data-sstudy="${s.id}">${ICONS.play}Study whole subject (${subjectStudyCount(s)})</button>` : '' }
+          ${lectures || '<p class="faint" style="font-size:12.5px;padding:4px 10px;margin:0">No lectures yet.</p>'}
+          <div class="fc-lec-add">
+            <input type="text" data-newlec="${s.id}" placeholder="Add lecture…" autocomplete="off" />
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderDeckEmpty(){
+  return `<div class="card card-pad empty" style="padding:48px 22px">${ICONS.cards}
+    <h4>Pick a lecture</h4><p>Choose a lecture from the left to see its deck, add cards, and start an Anki-style review session.</p></div>`;
+}
+
+function deckListHTML(l){
+  let cards=[...l.cards];
+  if(fcSearch){ const q=fcSearch.toLowerCase(); cards=cards.filter(c=>c.q.toLowerCase().includes(q)||c.a.toLowerCase().includes(q)); }
+  const rank=c=>{const st=cardStatus(c);return st==='overdue'?0:st==='due'?1:st==='new'?2:st==='upcoming'?3:4;};
+  cards.sort((a,b)=>rank(a)-rank(b));
+  if(!cards.length) return `<div class="empty" style="padding:30px">${ICONS.cards}<h4>${fcSearch?'No matching cards':'No cards yet'}</h4><p>${fcSearch?'Try a different search.':'Add your first card or bulk-import a list.'}</p></div>`;
+  return cards.map(c=>{
+    const st=cardStatus(c);
+    return `<div class="card-row">
+        <span class="card-status-dot s-${st}" title="${st}"></span>
+        ${c.qImg?`<img class="card-row-thumb" src="${c.qImg}" alt="">`:''}
+        <div class="card-qa">
+          <div class="card-q">${escapeHTML(c.q)}${c.qImg&&!c.q?'<span class="faint">[image]</span>':''}</div>
+          <div class="card-a">${escapeHTML(c.a)}${c.aImg&&!c.a?'<span class="faint">[image]</span>':''}</div>
+          <div class="card-meta">${st==='mastered'?'Mastered':st==='new'?'New card':(st.charAt(0).toUpperCase()+st.slice(1))+(c.due?' · '+relativeLabel(c.due):'')} · ${c.reps}/${getN()} reps</div>
+        </div>
+        <div class="card-row-actions">
+          <button class="mini-btn" data-cedit="${c.id}" title="Edit">${ICONS.edit}</button>
+          <button class="mini-btn" data-cdel="${c.id}" title="Delete">${ICONS.trash}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderDeck(l){
+  const sub=findSubject(fcSelSubject);
+  const dueN=deckDueCount(l), newN=deckNewCount(l), total=l.cards.length;
+  const mastered=l.cards.filter(c=>cardStatus(c)==='mastered').length;
+
+  return `<div class="card card-pad">
+    <button class="btn btn-ghost btn-sm fc-back-btn" id="fcBack" style="margin-bottom:12px">${ICONS.chevL}Back to subjects</button>
+    <div class="deck-head">
+      <div>
+        <div class="deck-title">${escapeHTML(l.name)}</div>
+        <div class="deck-sub">${escapeHTML(sub?sub.name:'')} · ${total} card${total===1?'':'s'}</div>
+        <div class="deck-stats">
+          <span class="deck-pill due">${dueN} due</span>
+          <span class="deck-pill new">${newN} new</span>
+          <span class="deck-pill mastered">${mastered} mastered</span>
+        </div>
+      </div>
+      <div class="deck-actions">
+        <button class="btn btn-primary btn-sm" id="studyDeck" ${deckStudyCount(l)===0?'disabled style="opacity:.5"':''}>${ICONS.play}Study${deckStudyCount(l)?` (${deckStudyCount(l)})`:''}</button>
+      </div>
+    </div>
+    <div class="deck-actions" style="margin-bottom:14px">
+      <button class="btn btn-ghost btn-sm" id="addCardBtn">${ICONS.plus}Add card</button>
+      <button class="btn btn-ghost btn-sm" id="bulkBtn">${ICONS.layers}Bulk add</button>
+      <button class="btn btn-ghost btn-sm" id="importCardsBtn">${ICONS.upload}Import</button>
+    </div>
+    ${ total>6 ? `<div class="search" style="margin-bottom:12px">${ICONS.search}<input type="text" id="fcSearch" placeholder="Search cards…" value="${escapeAttr(fcSearch)}"></div>`:'' }
+    <div id="deckList">${deckListHTML(l)}</div>
+  </div>`;
+}
+
+/* ---- Review session ------------------------------------------------------ */
+function openReviewSession(subId, lecId, queue, scopeLabel){
+  reviewSession={ subId, lecId, queue, idx:0, revealed:false, total:queue.length, done:0, scope:scopeLabel, startedAt:Date.now() };
+  // reset overlay to a clean study state (in case a previous "Deck complete" was showing)
+  document.getElementById('reviewOverlay').classList.add('open');
+  document.getElementById('reviewDone').hidden=true;
+  document.getElementById('reviewStage').style.display='';
+  document.getElementById('reviewControls').style.display='';
+  document.getElementById('gradeRow').hidden=true;
+  document.getElementById('btnReveal').style.display='flex';
+  renderReviewCard();
+}
+function startReview(subId, lecId){
+  const l=findFLecture(subId,lecId); if(!l) return;
+  const isNew = c => cardStatus(c)==='new';
+  // New cards first (always immediately studyable), then due/overdue review cards by date.
+  const newCards   = l.cards.filter(isNew);
+  const dueReviews = l.cards.filter(c=> !isNew(c) && cardIsDue(c))
+                            .sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  let queue = [...newCards, ...dueReviews].map(c=>c.id);   // disjoint → no duplicates
+  if(queue.length===0){ toast('All caught up — nothing to study in this deck','ok'); return; }
+  const limit=getCardsPerSession();
+  if(limit>0 && queue.length>limit) queue=queue.slice(0,limit);
+  openReviewSession(subId, lecId, queue, 'lecture');
+}
+function startSubjectReview(subId){
+  const s=findSubject(subId); if(!s) return;
+  const isNew = c => cardStatus(c)==='new';
+  // Gather across every lecture: new cards first, then all due/overdue reviews by date.
+  const newCards=[], dueReviews=[];
+  s.lectures.forEach(l=> l.cards.forEach(c=>{
+    if(isNew(c)) newCards.push(c);
+    else if(cardIsDue(c)) dueReviews.push(c);
+  }));
+  dueReviews.sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  let queue = [...newCards, ...dueReviews].map(c=>c.id);
+  if(queue.length===0){ toast('All caught up — nothing to study in this subject','ok'); return; }
+  const limit=getCardsPerSession();
+  if(limit>0 && queue.length>limit) queue=queue.slice(0,limit);
+  openReviewSession(subId, null, queue, 'subject'); // lecId=null → whole-subject session
+}
+function currentReviewCard(){
+  if(!reviewSession) return null;
+  const ref=findCardRef(reviewSession.subId, reviewSession.queue[reviewSession.idx]);
+  return ref ? ref.card : null;
+}
+function renderReviewCard(){
+  const ref=reviewSession ? findCardRef(reviewSession.subId, reviewSession.queue[reviewSession.idx]) : null;
+  if(!ref){ finishReview(); return; }
+  const c=ref.card;
+  // label shows the card's own lecture (matters for whole-subject sessions spanning lectures)
+  document.getElementById('reviewDeckLabel').textContent=(ref.sub?ref.sub.name+' · ':'')+(ref.lec?ref.lec.name:'');
+  const qImgEl=document.getElementById('reviewQImg'), aImgEl=document.getElementById('reviewAImg');
+  if(c.qImg){ qImgEl.src=c.qImg; qImgEl.hidden=false; } else { qImgEl.hidden=true; qImgEl.src=''; }
+  if(c.aImg){ aImgEl.src=c.aImg; } else { aImgEl.src=''; }
+  aImgEl.hidden=true; // only reveal alongside the answer text
+  document.getElementById('reviewQ').textContent=c.q;
+  document.getElementById('reviewA').textContent=c.a;
+  reviewSession.revealed=false;
+  document.getElementById('reviewCardA').hidden=true;
+  document.getElementById('gradeRow').hidden=true;
+  document.getElementById('btnReveal').style.display='flex';
+  // progress
+  const total=reviewSession.total, done=reviewSession.done;
+  document.getElementById('reviewCount').textContent=`${Math.min(done+1,total)} / ${total}`;
+  document.getElementById('reviewBar').style.width=(done/total*100)+'%';
+  // grade interval previews
+  previewGradeLabels(c);
+}
+function revealAnswer(){
+  if(!reviewSession || reviewSession.revealed) return;
+  reviewSession.revealed=true;
+  document.getElementById('reviewCardA').hidden=false;
+  const aImgEl=document.getElementById('reviewAImg'); if(aImgEl.src) aImgEl.hidden=false;
+  document.getElementById('gradeRow').hidden=false;
+  document.getElementById('btnReveal').style.display='none';
+}
+function fmtGap(days){
+  if(days<=0) return 'now';
+  if(days===1) return '1d';
+  if(days<21) return days+'d';
+  if(days<60) return Math.round(days/7)+'wk';
+  return Math.round(days/30)+'mo';
+}
+function previewGradeLabels(card){
+  // simulate each rating non-destructively; labels are derived from the SAME gradeCard the
+  // real grade uses, so the shown interval always matches the stored due date.
+  const sim=(grade)=>{ const clone=JSON.parse(JSON.stringify(card)); gradeCard(clone,grade);
+    if(clone.due===null) return 'done';
+    return fmtGap(diffDays(clone.due, todayISO())); };
+  document.getElementById('gAgain').textContent=sim('again');
+  document.getElementById('gHard').textContent=sim('hard');
+  document.getElementById('gGood').textContent=sim('good');
+  document.getElementById('gEasy').textContent=sim('easy');
+}
+function applyGrade(grade){
+  if(!reviewSession || !reviewSession.revealed) return;
+  const c=currentReviewCard(); if(!c) return;
+  gradeCard(c, grade);
+  save();
+  if(grade==='again'){
+    // lapse → requeue this card to the end of the session; it must be seen again before completion
+    reviewSession.queue.push(reviewSession.queue[reviewSession.idx]);
+    reviewSession.total++;
+  } else {
+    reviewSession.done++;
+  }
+  reviewSession.idx++;
+  // refresh underlying counts without disturbing the overlay
+  renderFlashcards(); renderBadges(); renderToday(); renderCalendar();
+  if(reviewSession.idx>=reviewSession.queue.length) finishReview();
+  else renderReviewCard();
+}
+function finishReview(){
+  if(!reviewSession) return;
+  const done=reviewSession.done;
+  if(done>0){ state.stats.sessionsCompleted=(state.stats.sessionsCompleted||0)+1; save(); }
+  document.getElementById('reviewStage').style.display='none';
+  document.getElementById('reviewControls').style.display='none';
+  document.getElementById('reviewBar').style.width='100%';
+  document.getElementById('reviewCount').textContent=`${done} / ${done}`;
+  const dn=document.getElementById('reviewDone');
+  document.getElementById('reviewDoneMsg').textContent=`You reviewed ${done} card${done===1?'':'s'}. Nice work — everything's rescheduled inside your plan.`;
+  dn.hidden=false;
+  if(!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){ try{ celebrate(); }catch(e){} }
+}
+function exitReview(){
+  if(reviewSession && reviewSession.startedAt){
+    const elapsed=Date.now()-reviewSession.startedAt;
+    if(elapsed>0 && elapsed<6*60*60*1000){ // ignore absurd values (e.g. left tab open overnight)
+      state.stats.totalReviewMs=(state.stats.totalReviewMs||0)+elapsed;
+      if(!state.stats.firstReviewDate) state.stats.firstReviewDate=todayISO();
+      save();
+    }
+  }
+  document.getElementById('reviewOverlay').classList.remove('open');
+  reviewSession=null;
+  render();
+}
+
+/* ---- Flashcard actions (modals, selection, CRUD glue) -------------------- */
+function selectLecture(subId, lecId){
+  fcSelSubject=subId; fcSelLecture=lecId; fcSearch='';
+  renderFlashcards();
+  const dp=document.querySelector('#view-flashcards .deck-panel');
+  if(dp && window.innerWidth<=860) dp.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function subjToggle(id){ fcSelSubject = (fcSelSubject===id ? null : id); renderFlashcards(); }
+function addSubjectFromInput(){
+  const inp=document.getElementById('newSubject'); if(!inp) return;
+  const s=addSubject(inp.value);
+  if(s){ inp.value=''; fcSelSubject=s.id; renderFlashcards(); toast('Subject added','ok'); document.getElementById('newSubject').focus(); }
+}
+function addLectureFromInput(subId, inputEl){
+  const l=addFLecture(subId, inputEl.value);
+  if(l){ inputEl.value=''; fcSelSubject=subId; renderFlashcards();
+    const again=document.querySelector(`[data-newlec="${subId}"]`); if(again) again.focus();
+    toast('Lecture added','ok'); }
+}
+async function renameSubjectPrompt(id){
+  const s=findSubject(id); if(!s) return;
+  const v=await askPrompt('Rename subject', s.name, 'Save');
+  if(v && v.trim()){ renameSubject(id, v); renderFlashcards(); toast('Renamed','ok'); }
+}
+async function renameFLecturePrompt(subId, lecId){
+  const l=findFLecture(subId, lecId); if(!l) return;
+  const v=await askPrompt('Rename lecture', l.name, 'Save');
+  if(v && v.trim()){ renameFLecture(subId, lecId, v); renderFlashcards(); toast('Renamed','ok'); }
+}
+
+let cardModalCtx=null;
+let cardImgState={q:null, a:null};   // pending image dataURLs while the modal is open
+function openCardModal(subId, lecId, cardId){
+  cardModalCtx={subId, lecId};
+  const lec=findFLecture(subId, lecId); if(!lec) return;
+  const c = cardId ? lec.cards.find(x=>x.id===cardId) : null;
+  document.getElementById('cardModalTitle').textContent = c?'Edit card':'New card';
+  document.getElementById('cardEditId').value = cardId||'';
+  document.getElementById('cardQ').value = c?c.q:'';
+  document.getElementById('cardA').value = c?c.a:'';
+  cardImgState = { q: c?c.qImg:null, a: c?c.aImg:null };
+  renderImgSlot('q'); renderImgSlot('a');
+  document.getElementById('cardSaveAdd').style.display = c?'none':'';
+  document.getElementById('cardAddHint').style.display = c?'none':'';
+  document.getElementById('cardModal').classList.add('open');
+  setTimeout(()=>document.getElementById('cardQ').focus(), 60);
+}
+function closeCardModal(){ document.getElementById('cardModal').classList.remove('open'); cardModalCtx=null; cardImgState={q:null,a:null}; }
+function saveCardModal(addAnother){
+  if(!cardModalCtx) return;
+  const q=document.getElementById('cardQ').value, a=document.getElementById('cardA').value;
+  const id=document.getElementById('cardEditId').value;
+  let ok;
+  if(id) ok=updateCard(cardModalCtx.subId, cardModalCtx.lecId, id, q, a, cardImgState.q, cardImgState.a);
+  else   ok=addCard(cardModalCtx.subId, cardModalCtx.lecId, q, a, cardImgState.q, cardImgState.a);
+  if(!ok) return;
+  const ctx=cardModalCtx;                 // renderFlashcards won't clear it, but be safe
+  renderFlashcards(); renderBadges();
+  if(id){ closeCardModal(); toast('Card updated','ok'); }
+  else if(addAnother){
+    cardModalCtx=ctx; cardImgState={q:null,a:null};
+    document.getElementById('cardEditId').value='';
+    document.getElementById('cardQ').value=''; document.getElementById('cardA').value='';
+    renderImgSlot('q'); renderImgSlot('a');
+    document.getElementById('cardQ').focus(); toast('Card added','ok');
+  } else { closeCardModal(); toast('Card added','ok'); }
+}
+
+/* ---- Card images: upload, resize, slot rendering ------------------------- */
+const MAX_IMG_DIM = 1400;          // longest side, px — keeps localStorage usage sane
+const IMG_QUALITY  = 0.85;
+function readAndResizeImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('Could not read file'));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error('Not a valid image'));
+      img.onload=()=>{
+        let {width:w, height:h}=img;
+        if(w>MAX_IMG_DIM || h>MAX_IMG_DIM){
+          const scale=MAX_IMG_DIM/Math.max(w,h); w=Math.round(w*scale); h=Math.round(h*scale);
+        }
+        const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', IMG_QUALITY));
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+let pendingImgSide=null; // 'q' | 'a' — which slot the file input / annotator is targeting
+function renderImgSlot(side){
+  const slot=document.getElementById(side==='q'?'qImgSlot':'aImgSlot');
+  const src=cardImgState[side];
+  slot.innerHTML = src
+    ? `<div class="img-preview"><img src="${src}" alt="">
+         <div class="img-preview-actions">
+           <button class="btn btn-ghost btn-sm" data-imgannotate="${side}">${ICONS.pen}Annotate</button>
+           <button class="btn btn-ghost btn-sm" data-imgdel="${side}">${ICONS.trash}Remove</button>
+         </div></div>`
+    : `<button class="btn btn-ghost btn-sm" data-imgadd="${side}">${ICONS.image}Add image</button>`;
+}
+async function handleImgFile(file){
+  if(!file || !pendingImgSide) return;
+  if(!file.type.startsWith('image/')){ toast('Please choose an image file','warn'); return; }
+  try{
+    const dataURL=await readAndResizeImage(file);
+    cardImgState[pendingImgSide]=dataURL;
+    renderImgSlot(pendingImgSide);
+  }catch(e){ toast('Could not load that image','warn'); }
+  pendingImgSide=null;
+}
+
+/* ---- Image annotation (pen / highlighter / eraser over a canvas) -------- */
+let annoCtx=null, annoSide=null, annoTool='pen', annoColor='#ef4444', annoSize=6;
+let annoStrokes=[], annoRedoStack=[], annoBaseImg=null, annoDrawing=false, annoCurStroke=null;
+function openAnnotate(side){
+  const src=cardImgState[side]; if(!src){ toast('Add an image first','warn'); return; }
+  annoSide=side; annoStrokes=[]; annoRedoStack=[];
+  const img=new Image();
+  img.onload=()=>{
+    annoBaseImg=img;
+    const canvas=document.getElementById('annoCanvas');
+    const wrap=canvas.parentElement;
+    const maxW = Math.min(680, (wrap && wrap.clientWidth) || 680);
+    const scale = Math.min(1, maxW/img.width);
+    canvas.width=Math.round(img.width*scale); canvas.height=Math.round(img.height*scale);
+    annoCtx=canvas.getContext('2d');
+    redrawAnnotate();
+    document.getElementById('annotateModal').classList.add('open');
+  };
+  img.src=src;
+}
+function redrawAnnotate(){
+  if(!annoCtx || !annoBaseImg) return;
+  const c=annoCtx.canvas;
+  annoCtx.clearRect(0,0,c.width,c.height);
+  annoCtx.drawImage(annoBaseImg,0,0,c.width,c.height);
+  annoStrokes.forEach(s=>drawStroke(annoCtx, s));
+}
+function drawStroke(ctx, s){
+  if(s.pts.length<1) return;
+  ctx.save();
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle=s.color; ctx.lineWidth=s.size;
+  ctx.globalAlpha = s.tool==='marker' ? 0.35 : 1;
+  ctx.globalCompositeOperation = s.tool==='eraser' ? 'destination-out' : 'source-over';
+  ctx.beginPath();
+  ctx.moveTo(s.pts[0].x, s.pts[0].y);
+  for(let i=1;i<s.pts.length;i++) ctx.lineTo(s.pts[i].x, s.pts[i].y);
+  if(s.pts.length===1) ctx.lineTo(s.pts[0].x+0.01, s.pts[0].y+0.01); // dot
+  ctx.stroke();
+  ctx.restore();
+}
+function annoPointerPos(e){
+  const canvas=document.getElementById('annoCanvas');
+  const rect=canvas.getBoundingClientRect();
+  const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  return { x: cx * (canvas.width/rect.width), y: cy * (canvas.height/rect.height) };
+}
+function annoStart(e){
+  e.preventDefault();
+  annoDrawing=true; annoRedoStack=[];
+  annoCurStroke={ tool:annoTool, color:annoColor, size:Number(annoSize), pts:[annoPointerPos(e)] };
+  annoStrokes.push(annoCurStroke);
+  redrawAnnotate();
+}
+function annoMove(e){
+  if(!annoDrawing || !annoCurStroke) return;
+  e.preventDefault();
+  annoCurStroke.pts.push(annoPointerPos(e));
+  redrawAnnotate();
+}
+function annoEnd(){ annoDrawing=false; annoCurStroke=null; }
+function annoUndo(){ if(annoStrokes.length){ annoRedoStack.push(annoStrokes.pop()); redrawAnnotate(); } }
+function annoClearAll(){ if(!annoStrokes.length) return; annoStrokes=[]; annoRedoStack=[]; redrawAnnotate(); }
+function closeAnnotate(){ document.getElementById('annotateModal').classList.remove('open'); annoCtx=null; annoBaseImg=null; annoSide=null; }
+function saveAnnotate(){
+  if(!annoCtx || !annoSide) return;
+  const dataURL=document.getElementById('annoCanvas').toDataURL('image/jpeg', IMG_QUALITY);
+  cardImgState[annoSide]=dataURL;
+  renderImgSlot(annoSide);
+  closeAnnotate();
+  toast('Annotations saved','ok');
+}
+
+let bulkCtx=null;
+function openBulk(subId, lecId){
+  bulkCtx={subId, lecId};
+  document.getElementById('bulkText').value='';
+  document.getElementById('bulkCount').textContent='0 cards detected';
+  document.getElementById('bulkModal').classList.add('open');
+  setTimeout(()=>document.getElementById('bulkText').focus(), 60);
+}
+function closeBulk(){ document.getElementById('bulkModal').classList.remove('open'); bulkCtx=null; }
+function doBulk(){
+  if(!bulkCtx) return;
+  const n=bulkAddCards(bulkCtx.subId, bulkCtx.lecId, document.getElementById('bulkText').value);
+  if(n===0){ toast('No valid cards found — check the separators','warn'); return; }
+  closeBulk(); renderFlashcards(); renderBadges(); toast(n+' card'+(n===1?'':'s')+' added','ok');
+}
+
+/* ---- Import: CSV/TSV + Anki .apkg ---------------------------------------- */
+let importCtx=null;          // {subId, lecId}
+let importPendingItems=null; // [{q,a,qImg,aImg}] staged for the Import button
+
+function openImport(subId, lecId){
+  importCtx={subId, lecId}; importPendingItems=null;
+  document.getElementById('importGo').disabled=true;
+  document.getElementById('csvStatus').textContent=''; document.getElementById('apkgStatus').textContent='';
+  document.getElementById('csvFileInput').value=''; document.getElementById('apkgFileInput').value='';
+  document.querySelectorAll('.import-tab').forEach((b,i)=>b.classList.toggle('active', i===0));
+  document.getElementById('importCSVPane').hidden=false; document.getElementById('importApkgPane').hidden=true;
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImport(){ document.getElementById('importModal').classList.remove('open'); importCtx=null; importPendingItems=null; }
+function runImport(){
+  if(!importCtx || !importPendingItems || !importPendingItems.length) return;
+  const n=bulkAddCardObjects(importCtx.subId, importCtx.lecId, importPendingItems);
+  closeImport(); renderFlashcards(); renderBadges();
+  if(n) toast(n+' card'+(n===1?'':'s')+' imported','ok'); else toast('Nothing valid to import','warn');
+}
+
+function handleCSVFile(file){
+  if(!file) return;
+  const status=document.getElementById('csvStatus');
+  status.textContent='Reading file…';
+  const reader=new FileReader();
+  reader.onerror=()=>{ status.textContent='Could not read that file — try re-saving it as plain CSV/TSV text and import again.'; };
+  reader.onload=()=>{
+    try{
+      let text=String(reader.result||'');
+      if(text.charCodeAt(0)===0xFEFF) text=text.slice(1); // strip UTF-8 BOM some exporters add
+      const items=parseCSVorTSV(text);
+      importPendingItems = items;
+      status.textContent = items.length
+        ? items.length+' card'+(items.length===1?'':'s')+' detected — press Import.'
+        : 'No valid rows found. Expecting two columns: question, answer.';
+      document.getElementById('importGo').disabled = items.length===0;
+    }catch(e){
+      console.warn('csv import failed', e);
+      status.textContent='Could not parse that file as CSV/TSV.';
+    }
+  };
+  try{ reader.readAsText(file); }
+  catch(e){ status.textContent='Could not read that file.'; }
+}
+
+/* Dynamically load a CDN script once and cache the promise. Times out instead of hanging forever
+   if the network is blocked/slow, so the UI always reaches a clear error state. */
+const _scriptCache={};
+function loadScript(src, timeoutMs){
+  if(_scriptCache[src]) return _scriptCache[src];
+  _scriptCache[src]=new Promise((resolve,reject)=>{
+    let done=false;
+    const timer=setTimeout(()=>{ if(!done){ done=true; reject(new Error('Timed out loading '+src+' — check your internet connection.')); } }, timeoutMs||12000);
+    const s=document.createElement('script');
+    s.src=src;
+    s.onload=()=>{ if(!done){ done=true; clearTimeout(timer); resolve(); } };
+    s.onerror=()=>{ if(!done){ done=true; clearTimeout(timer); reject(new Error('Failed to load '+src)); } };
+    document.head.appendChild(s);
+  });
+  return _scriptCache[src];
+}
+function mimeForExt(name){
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  if(ext==='png') return 'image/png'; if(ext==='gif') return 'image/gif'; if(ext==='webp') return 'image/webp';
+  if(ext==='svg') return 'image/svg+xml'; return 'image/jpeg';
+}
+function bytesToBase64(bytes){
+  let binary=''; const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk) binary+=String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+  return btoa(binary);
+}
+/* Best-effort strip of Anki's HTML field markup down to plain text for Recall's text-only Q/A. */
+function stripAnkiHTML(html){
+  return (html||'')
+    .replace(/<br\s*\/?>/gi,'\n').replace(/<\/(div|p|li)>/gi,'\n')
+    .replace(/<[^>]+>/g,'')
+    .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+    .replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+async function handleApkgFile(file){
+  if(!file) return;
+  const status=document.getElementById('apkgStatus');
+  document.getElementById('importGo').disabled=true; importPendingItems=null;
+  status.textContent='Loading import libraries…';
+  try{
+    try{ await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'); }
+    catch(e){ status.textContent='Could not load the zip-reading library (needed once, requires internet). '+(e&&e.message?e.message:''); return; }
+    if(!window.initSqlJs){
+      try{ await loadScript('https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js'); }
+      catch(e){ status.textContent='Could not load the database-reading library (needed once, requires internet). '+(e&&e.message?e.message:''); return; }
+    }
+    status.textContent='Reading package…';
+    let buf;
+    try{ buf=await file.arrayBuffer(); }
+    catch(e){ status.textContent='Could not read this file from disk. Try re-selecting it.'; return; }
+    let zip;
+    try{ zip=await window.JSZip.loadAsync(buf); }
+    catch(e){ status.textContent='This doesn\'t look like a valid .apkg file (it should be a zip package exported from Anki).'; return; }
+    const mediaEntry = zip.file('media');
+    let filenameToIndex={};
+    if(mediaEntry){
+      try{ const mediaJson=JSON.parse(await mediaEntry.async('string'));
+        Object.keys(mediaJson).forEach(idx=>{ filenameToIndex[mediaJson[idx]]=idx; }); }catch(e){/* media map optional */}
+    }
+    let dbBytes=null;
+    const legacyEntry = zip.file('collection.anki21') || zip.file('collection.anki2');
+    const modernEntry = zip.file('collection.anki21b');
+    // IMPORTANT: modern Anki (2.1.50+) packages include BOTH files, but collection.anki2/anki21
+    // is only a compatibility stub (a single placeholder note saying "please update Anki") —
+    // the real data lives in the zstd-compressed collection.anki21b. Always prefer that one.
+    async function loadModern(){
+      status.textContent='Decompressing package (newer Anki format)…';
+      // fzstd is bundled directly in this file (see top of script), so this never depends on network.
+      const compressed = await modernEntry.async('uint8array');
+      return window.fzstd.decompress(compressed);
+    }
+    async function loadLegacy(){
+      status.textContent='Loading database…';
+      return await legacyEntry.async('uint8array');
+    }
+    if(modernEntry){
+      try{ dbBytes = await loadModern(); }
+      catch(e){
+        console.warn('zstd decompress failed, falling back to legacy db', e);
+        if(legacyEntry) dbBytes = await loadLegacy();
+        else { status.textContent='Could not decompress this .apkg. Try re-exporting from Anki with "Support older Anki versions" checked, then import again.'; return; }
+      }
+    } else if(legacyEntry){
+      dbBytes = await loadLegacy();
+    } else {
+      status.textContent='No Anki collection found inside this file — is this really a .apkg export?';
+      return;
+    }
+    status.textContent='Loading database…';
+    let SQL;
+    try{
+      SQL = await Promise.race([
+        window.initSqlJs({ locateFile:f=>'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/'+f }),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timed out loading the SQLite engine — check your internet connection.')), 15000))
+      ]);
+    }catch(e){ status.textContent=(e&&e.message)?e.message:'Could not load the SQLite engine (needed once, requires internet).'; return; }
+    let db;
+    try{ db=new SQL.Database(dbBytes); }
+    catch(e){
+      // dbBytes came from the wrong/corrupt source — try the other collection file before giving up
+      if(modernEntry && legacyEntry){
+        try{ dbBytes=await loadLegacy(); db=new SQL.Database(dbBytes); }
+        catch(e2){ status.textContent='This package\'s database could not be opened. It may be corrupted or from an unsupported Anki version.'; return; }
+      } else { status.textContent='This package\'s database could not be opened. It may be corrupted or from an unsupported Anki version.'; return; }
+    }
+    let res;
+    try{ res=db.exec('SELECT flds FROM notes'); }
+    catch(e){ status.textContent='This package\'s database is missing the expected note data.'; db.close(); return; }
+    // Guard against the single-note "please update Anki" stub slipping through as if it were real data.
+    if(res.length && res[0].values.length===1){
+      const stub=String(res[0].values[0][0]||'');
+      if(/please update to the latest anki/i.test(stub) && legacyEntry && modernEntry){
+        db.close();
+        try{
+          dbBytes = await loadModern();
+          db=new SQL.Database(dbBytes);
+          res=db.exec('SELECT flds FROM notes');
+        }catch(e){ status.textContent='Could not read the full package data (only found the compatibility placeholder). Try re-exporting from Anki.'; return; }
+      }
+    }
+    if(!res.length){ status.textContent='No notes found in this deck.'; db.close(); return; }
+    status.textContent='Extracting cards & images…';
+    const items=[];
+    for(const row of res[0].values){
+      const flds=String(row[0]||'');
+      const fields=flds.split('\x1f');
+      const frontRaw=fields[0]||'', backRaw=fields[1]||fields[0]||'';
+      const q=stripAnkiHTML(frontRaw), a=stripAnkiHTML(backRaw);
+      const qImg=await firstImageDataURL(frontRaw, filenameToIndex, zip);
+      const aImg=await firstImageDataURL(backRaw, filenameToIndex, zip);
+      if(q||qImg||a||aImg) items.push({q,a,qImg,aImg});
+    }
+    db.close();
+    importPendingItems=items;
+    status.textContent = items.length
+      ? items.length+' card'+(items.length===1?'':'s')+' found — press Import.'
+      : 'No cards could be extracted from this package.';
+    document.getElementById('importGo').disabled = items.length===0;
+  }catch(e){
+    console.warn('apkg import failed', e);
+    status.textContent='Could not read this .apkg ('+(e && e.message ? e.message : 'unknown error')+'). Check your connection (needed once to load import libraries), or the file may be corrupted/unsupported.';
+  }
+}
+async function firstImageDataURL(fieldHTML, filenameToIndex, zip){
+  const m=(fieldHTML||'').match(/<img[^>]+src=["']?([^"'>\s]+)["']?[^>]*>/i);
+  if(!m) return null;
+  const filename=m[1];
+  const idx=filenameToIndex[filename];
+  if(idx===undefined) return null;
+  const entry=zip.file(String(idx)); if(!entry) return null;
+  try{
+    const bytes=await entry.async('uint8array');
+    const raw='data:'+mimeForExt(filename)+';base64,'+bytesToBase64(bytes);
+    return await resizeDataURL(raw);
+  }catch(e){ return null; }
+}
+function resizeDataURL(dataURL){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onerror=()=>resolve(dataURL);        // fall back to original if it can't be decoded further
+    img.onload=()=>{
+      let {width:w,height:h}=img;
+      if(w<=MAX_IMG_DIM && h<=MAX_IMG_DIM){ resolve(dataURL); return; }
+      const scale=MAX_IMG_DIM/Math.max(w,h); w=Math.round(w*scale); h=Math.round(h*scale);
+      const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(canvas.toDataURL('image/jpeg', IMG_QUALITY));
+    };
+    img.src=dataURL;
+  });
+}
+
+/* ---- SCHEDULE (searchable / filterable task list) ------------------------ */
+const FILTERS=[
+  {id:'today',label:'Today'},{id:'tomorrow',label:'Tomorrow'},{id:'week',label:'This week'},
+  {id:'month',label:'This month'},{id:'pending',label:'Pending'},{id:'overdue',label:'Overdue'},{id:'completed',label:'Completed'}
+];
+function filterTasks(){
+  const today=todayISO();
+  let list=allTasks();
+  if(scheduleSearch){ const q=scheduleSearch.toLowerCase(); list=list.filter(t=>t.lec.name.toLowerCase().includes(q)); }
+  switch(scheduleFilter){
+    case 'today': list=list.filter(t=>t.r.due===today && !t.r.completed); break;
+    case 'tomorrow': list=list.filter(t=>t.r.due===addDays(today,1) && !t.r.completed); break;
+    case 'week': { const e=addDays(today,6); list=list.filter(t=>!t.r.completed && t.r.due>=today && t.r.due<=e); break; }
+    case 'month': { const d=fromISO(today); const mEnd=toISO(new Date(d.getFullYear(),d.getMonth()+1,0)); const mStart=toISO(new Date(d.getFullYear(),d.getMonth(),1)); list=list.filter(t=>!t.r.completed && t.r.due>=mStart && t.r.due<=mEnd); break; }
+    case 'pending': list=list.filter(t=>!t.r.completed); break;
+    case 'overdue': list=list.filter(t=>t.status==='overdue'); break;
+    case 'completed': list=list.filter(t=>t.r.completed); break;
+  }
+  // sort: incomplete by due asc, completed by completedAt desc
+  list.sort((a,b)=>{
+    if(scheduleFilter==='completed') return (b.r.completedAt||'').localeCompare(a.r.completedAt||'');
+    return a.r.due.localeCompare(b.r.due);
+  });
+  return list;
+}
+function renderSchedule(){
+  const el=document.getElementById('view-schedule');
+  const list=filterTasks();
+  el.innerHTML = `
+    ${viewHead('Search and work through your reviews', 'Schedule')}
+    <div class="toolbar">
+      <div class="search">${ICONS.search}<input type="text" id="schSearch" placeholder="Search by lecture name…" value="${escapeAttr(scheduleSearch)}" /></div>
+    </div>
+    <div class="chips" id="schChips">
+      ${FILTERS.map(f=>`<button class="chip ${scheduleFilter===f.id?'active':''}" data-filter="${f.id}">${f.label}</button>`).join('')}
+    </div>
+    <div class="card card-pad" style="margin-top:16px">
+      ${ list.length ? `<div class="task-list">${list.map(t=>taskRow(t)).join('')}</div>`
+        : `<div class="empty">${ICONS.inbox}<h4>Nothing here</h4><p>No reviews match this filter${scheduleSearch?' and search':''}. Try another filter.</p></div>` }
+    </div>`;
+}
+
+/* ---- LECTURES (library with per-lecture review track) -------------------- */
+function renderLectures(){
+  const el=document.getElementById('view-lectures');
+  let list=[...state.lectures];
+  if(lectureSearch){ const q=lectureSearch.toLowerCase(); list=list.filter(l=>l.name.toLowerCase().includes(q)); }
+  list.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+
+  el.innerHTML = `
+    ${viewHead('Your syllabus, lecture by lecture', 'Lectures')}
+    <div class="toolbar">
+      <div class="search">${ICONS.search}<input type="text" id="lecSearch" placeholder="Search lectures…" value="${escapeAttr(lectureSearch)}" /></div>
+      <button class="btn btn-primary" id="addBtn2"><span>${ICONS.plus}</span>New lecture</button>
+    </div>
+    ${ list.length ? list.map(lectureCard).join('') :
+       (state.lectures.length===0
+         ? emptyState('No lectures yet','Add a lecture and Recall schedules its 10 reviews automatically.','Add your first lecture','openAdd')
+         : `<div class="empty card card-pad">${ICONS.search}<h4>No matches</h4><p>No lecture names match &ldquo;${escapeHTML(lectureSearch)}&rdquo;.</p></div>`) }`;
+}
+
+function lectureCard(l){
+  const p=lectureProgress(l);
+  const done=lectureComplete(l);
+  const nextDue = l.reviews.find(r=>!r.completed);
+  return `<div class="lec">
+    <div class="lec-top">
+      <div style="min-width:0">
+        <div class="lec-name">${escapeHTML(l.name)} ${done?'<span class="badge s-completed" style="vertical-align:middle">Mastered</span>':''}</div>
+        <div class="lec-meta">
+          <span>Studied ${fmtShort(l.dateStudied)}</span>
+          ${nextDue?`<span>Next: ${relativeLabel(nextDue.due)} (R${nextDue.i+1})</span>`:''}
+        </div>
+      </div>
+      <div class="lec-actions">
+        <button class="icon-btn" data-edit="${l.id}" aria-label="Edit">${ICONS.edit}</button>
+        <button class="icon-btn" data-del="${l.id}" aria-label="Delete">${ICONS.trash}</button>
+      </div>
+    </div>
+    <div class="lec-pct">
+      <div class="barwrap"><div class="fill" style="width:${p.pct}%"></div></div>
+      <span class="v">${p.pct}%</span>
+    </div>
+    <div class="track">${reviewTrack(l)}</div>
+  </div>`;
+}
+
+// Signature element: a 10-node track whose connector widths echo the growing gaps
+function reviewTrack(l){
+  const maxOff=Math.max(...l.reviews.map(r=>r.offset), 1);
+  let html='';
+  l.reviews.forEach((r,idx)=>{
+    const st=reviewStatus(r);
+    html+=`<button class="track-node" data-id="${l.id}" data-i="${r.i}" title="Review ${r.i+1} · due ${fmtShort(r.due)}${r.completed?' · done':''}">
+        <span class="track-dot s-${st}"><small>${r.completed?'✓':r.i+1}</small></span>
+        <span class="track-day">${relativeLabel(r.due)}</span>
+      </button>`;
+    if(idx<l.reviews.length-1){
+      const gap=(l.reviews[idx+1].offset - r.offset);
+      const w=8 + Math.round(gap/maxOff*34); // expanding gap; 0 when two reviews share a day
+      html+=`<span class="track-link" style="width:${w}px"></span>`;
+    }
+  });
+  return html;
+}
+
+/* ---- SETTINGS ------------------------------------------------------------ */
+function renderSettings(){
+  const el=document.getElementById('view-settings');
+  const iv=state.settings.intervals;
+  el.innerHTML = `
+    ${viewHead('Tune Recall to your study rhythm', 'Settings')}
+
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="set-row">
+        <div><div class="label">Dark mode</div><div class="desc">Easier on the eyes during late study sessions.</div></div>
+        <label class="switch"><input type="checkbox" id="setDark" ${state.settings.theme==='dark'?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="set-row">
+        <div><div class="label">Reminders for today&rsquo;s reviews</div><div class="desc">Get a browser notification when you open Recall with reviews waiting. Permission is asked once.</div></div>
+        <label class="switch"><input type="checkbox" id="setNotif" ${state.settings.notifications?'checked':''}><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="card-head"><h3>Study period &amp; reviews</h3><span class="hint">drives every schedule</span></div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">Choose your dates and how many times each item is reviewed. Recall distributes those reviews across the period for both lectures and flashcards — no review ever lands after the end date, and you never pick a date by hand.</p>
+      <div class="intervals" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+        <div class="iv-field"><label>Start date</label><input type="date" id="semStart" value="${semStartISO()}"></div>
+        <div class="iv-field"><label>End date</label><input type="date" id="semEnd" value="${semEndISO()}"></div>
+        <div class="iv-field"><label>Reviews per item</label><input type="number" min="1" max="60" id="numReviews" value="${getN()}"></div>
+      </div>
+      <p class="muted" style="font-size:13px;margin:12px 0 0" id="periodInfo">Period: <b>${fmtLong(semStartISO())}</b> → <b>${fmtLong(semEndISO())}</b> · ${diffDays(semEndISO(),semStartISO())} days · <b>${getN()}</b> reviews each.</p>
+      <div style="margin-top:14px"><button class="btn btn-primary btn-sm" id="semSave">Save &amp; reschedule everything</button></div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="card-head"><h3>Spacing pattern</h3><span class="hint">${getN()} steps</span></div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">The ideal expanding rhythm Recall aims for when there&rsquo;s room (relative days). It compresses automatically as the period runs out. Changing the number of reviews above regenerates this pattern.</p>
+      <div class="intervals" id="ivGrid">
+        ${iv.map((v,i)=>`<div class="iv-field"><label>Review ${i+1}</label><input type="number" min="1" max="999" data-iv="${i}" value="${v}"></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <button class="btn btn-primary btn-sm" id="ivSave">Save pattern</button>
+        <button class="btn btn-ghost btn-sm" id="ivReset">Reset to recommended</button>
+        <button class="btn btn-ghost btn-sm" id="ivApply">Reschedule existing lectures</button>
+      </div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="card-head"><h3>Flashcard sessions</h3></div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">How many flashcards to present each time you tap Study — new cards first, then due reviews. Saves automatically.</p>
+      <div class="intervals" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+        <div class="iv-field"><label>Cards per session</label><input type="number" min="1" max="500" id="cardsPerSession" value="${getCardsPerSession()}"></div>
+      </div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="card-head"><h3>Backup &amp; restore</h3></div>
+      <p class="muted" style="font-size:13px;margin:0 0 14px">Everything is stored only in this browser. Export a JSON file to back up or move your plan to another device.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="exportBtn">${ICONS.download}Export JSON</button>
+        <button class="btn btn-ghost btn-sm" id="importBtn">${ICONS.upload}Import JSON</button>
+      </div>
+    </div>
+
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="card-head"><h3>Sample data</h3></div>
+      <p class="muted" style="font-size:13px;margin:0 0 14px">Want to see Recall in action? Load a sample syllabus with past activity, then clear it whenever you like.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="sampleBtn">Load sample syllabus</button>
+        <button class="btn btn-danger btn-sm" id="clearBtn">${ICONS.trash}Erase all data</button>
+      </div>
+    </div>
+    <p class="faint" style="font-size:12px;text-align:center">Recall · offline-first · ${state.lectures.length} lecture(s) · ${computeStats().totalReviews} scheduled reviews</p>`;
+}
+
+/* ---- Small render helpers ------------------------------------------------ */
+function viewHead(eyebrow, title){
+  return `<div class="view-head"><div><div class="eyebrow">${escapeHTML(eyebrow)}</div><h1>${title}</h1></div></div>`;
+}
+function emptyState(title, body, btnLabel, action){
+  return `<div class="card card-pad empty" style="padding:48px 22px">
+    ${ICONS.book}<h4>${title}</h4><p>${body}</p>
+    <button class="btn btn-primary" data-action="${action}">${ICONS.plus}${btnLabel}</button></div>`;
+}
+function escapeHTML(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHTML(s); }
+
+function renderBadges(){
+  const s=computeStats();
+  const n=s.dueToday+s.overdue;
+  document.querySelectorAll('[data-badge]').forEach(b=>{
+    if(n>0){ b.hidden=false; b.textContent=n>99?'99+':n; } else b.hidden=true;
+  });
+  const cn=totalCardsDue();
+  document.querySelectorAll('[data-cbadge]').forEach(b=>{
+    if(cn>0){ b.hidden=false; b.textContent=cn>99?'99+':cn; } else b.hidden=true;
+  });
+}
+
+/* =====================================================================
+   ACTIONS / EVENTS
+   ===================================================================== */
+function switchView(v){
+  currentView=v;
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.nav-link,[data-view]').forEach(b=>{
+    if(b.dataset.view) b.classList.toggle('active', b.dataset.view===v);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* Add / edit modal */
+const modal=document.getElementById('modal');
+function openAdd(){
+  document.getElementById('modalTitle').textContent='New lecture';
+  document.getElementById('editId').value='';
+  document.getElementById('lecName').value='';
+  document.getElementById('lecDate').value=todayISO();
+  document.getElementById('saveBtn').textContent='Add lecture';
+  document.getElementById('deleteBtn').style.display='none';
+  updatePreview();
+  modal.classList.add('open');
+  setTimeout(()=>document.getElementById('lecName').focus(),60);
+}
+function openEdit(id){
+  const l=state.lectures.find(x=>x.id===id); if(!l) return;
+  document.getElementById('modalTitle').textContent='Edit lecture';
+  document.getElementById('editId').value=id;
+  document.getElementById('lecName').value=l.name;
+  document.getElementById('lecDate').value=l.dateStudied;
+  document.getElementById('saveBtn').textContent='Save changes';
+  document.getElementById('deleteBtn').style.display='inline-flex';
+  updatePreview();
+  modal.classList.add('open');
+  setTimeout(()=>document.getElementById('lecName').focus(),60);
+}
+function closeModal(){ modal.classList.remove('open'); }
+function updatePreview(){
+  const date=document.getElementById('lecDate').value||todayISO();
+  const revs=scheduleReviews(date);
+  const first=revs[0].due, last=revs[revs.length-1].due;
+  const start=semStartISO(), end=semEndISO();
+  let note='';
+  if(date < start) note=` Studied before the semester, so reviews start ${fmtShort(start)}.`;
+  else if(date > end) note=` That date is after the semester ends — reviews are pinned to the final day.`;
+  document.getElementById('schedulePreview').innerHTML=
+    `10 reviews spread between <b>${fmtShort(first)}</b> and <b>${fmtShort(last)}</b> — all before the semester ends ${fmtShort(end)}.${note}`;
+}
+function saveLecture(){
+  const name=document.getElementById('lecName').value.trim();
+  const date=document.getElementById('lecDate').value||todayISO();
+  if(!name){ toast('Enter a lecture name','warn'); document.getElementById('lecName').focus(); return; }
+  const id=document.getElementById('editId').value;
+  if(id){
+    const l=state.lectures.find(x=>x.id===id);
+    l.name=name;
+    if(l.dateStudied!==date){ l.dateStudied=date; l.reviews=scheduleReviews(date,l.reviews); }
+    toast('Lecture updated','ok');
+  }else{
+    state.lectures.push({ id:uid('lec'), name, dateStudied:date, createdAt:Date.now(), reviews:scheduleReviews(date) });
+    toast('Scheduled 10 reviews','ok');
+  }
+  save(); closeModal(); render();
+}
+async function deleteLecture(id){
+  const l=state.lectures.find(x=>x.id===id); if(!l) return;
+  const ok=await askConfirm('Delete lecture', `“${l.name}” and all 10 of its reviews will be removed. This can&rsquo;t be undone.`, 'Delete', true);
+  if(!ok) return;
+  state.lectures=state.lectures.filter(x=>x.id!==id); // drops the lecture and its nested reviews
+  save();                                              // persist immediately to Local Storage
+  closeModal(); render();                              // refresh list, calendar, schedule, dashboard
+  toast('Lecture deleted');
+}
+
+/* Toggle a review's completion */
+function toggleReview(id,i,checked){
+  const l=state.lectures.find(x=>x.id===id); if(!l) return;
+  const r=l.reviews[i]; if(!r) return;
+  const before = tasksForDate(todayISO()).filter(t=>!t.r.completed).length;
+  r.completed=checked;
+  r.completedAt=checked?todayISO():null;
+  save();
+  // confetti when the last of today's due reviews is completed
+  const after = tasksForDate(todayISO()).filter(t=>!t.r.completed).length;
+  render();
+  if(checked && before>0 && after===0){ celebrate(); toast('All of today&rsquo;s reviews done! 🎉','ok'); }
+}
+
+/* Theme */
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', state.settings.theme);
+  document.getElementById('themeBtn').innerHTML = state.settings.theme==='dark'?ICONS.sun:ICONS.moon;
+}
+function toggleTheme(){ state.settings.theme = state.settings.theme==='dark'?'light':'dark'; save(); applyTheme(); }
+
+/* Export / import */
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`recall-backup-${todayISO()}.json`; a.click();
+  URL.revokeObjectURL(url); toast('Backup exported','ok');
+}
+function importJSON(file){
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    let data;
+    try{ data=normalize(JSON.parse(e.target.result)); }
+    catch(err){ toast('That file could not be read','warn'); return; }
+    const ok=await askConfirm('Import data', 'This replaces everything currently in Recall with the contents of the file.', 'Replace data', true);
+    if(!ok) return;
+    state=data;
+    state.lectures.forEach(l=>{ if(!l.reviews||l.reviews.length!==getN()) l.reviews=scheduleReviews(l.dateStudied); });
+    save(); applyTheme(); render(); toast('Data imported','ok');
+  };
+  reader.readAsText(file);
+}
+
+/* Spacing pattern */
+function saveIntervals(apply){
+  const inputs=[...document.querySelectorAll('[data-iv]')];
+  if(inputs.length!==getN()) return;
+  const iv=inputs.map(inp=>clamp(parseInt(inp.value)||1,1,999));
+  for(let i=1;i<iv.length;i++) if(iv[i]<iv[i-1]) iv[i]=iv[i-1]; // keep non-decreasing
+  state.settings.intervals=iv;
+  if(apply){
+    state.lectures.forEach(l=>{ l.reviews=scheduleReviews(l.dateStudied, l.reviews); });
+    toast('Pattern saved & lectures rescheduled','ok');
+  }else{
+    toast('Pattern saved for new lectures','ok');
+  }
+  save(); render();
+}
+
+/* Study period + number of reviews */
+function saveSemester(){
+  const start = DATE_RE.test(document.getElementById('semStart').value) ? document.getElementById('semStart').value : semStartISO();
+  let end = DATE_RE.test(document.getElementById('semEnd').value) ? document.getElementById('semEnd').value : semEndISO();
+  if(end <= start){ toast('End date must be after the start date','warn'); return; }
+  const n = clamp(parseInt(document.getElementById('numReviews').value)||DEFAULT_NUM_REVIEWS, 1, 60);
+  const nChanged = n!==getN();
+  state.settings.semStart=start;
+  state.settings.semEnd=end;
+  if(nChanged){ state.settings.numReviews=n; state.settings.intervals=defaultPattern(n); } // regenerate pattern for new N
+  // reschedule lectures into the new window (keeps completions where the index still exists)
+  state.lectures.forEach(l=>{ l.reviews=scheduleReviews(l.dateStudied, l.reviews); });
+  // keep flashcards valid: cap any due at the new end, and never lose a non-mastered card's due
+  eachCard((s,l,c)=>{
+    if(nChanged) c.reps=Math.min(c.reps, n);
+    if(c.reps>=getN()){ c.due=null; }
+    else if(c.due===null){ c.due=newCardDue(); }
+    else if(c.due>end){ c.due=end; }
+  });
+  save();
+  const base = todayISO() < semStartISO() ? fromISO(semStartISO()) : new Date();
+  calCursor={y:base.getFullYear(), m:base.getMonth()};
+  render();
+  toast('Saved & everything rescheduled','ok');
+}
+
+/* Sample data — showcases how the algorithm compresses as the semester runs out */
+async function loadSample(){
+  if(state.lectures.length){
+    const ok=await askConfirm('Load sample syllabus','Eight example lectures will be added to your current data.','Add samples');
+    if(!ok) return;
+  }
+  const start=semStartISO(), end=semEndISO(), today=todayISO();
+  const plan=[
+    ['Cardiology — Heart Failure',            start],                 // day 1 → full expanding pattern
+    ['GIT — Liver Cirrhosis',                 addDays(start, 18)],
+    ['Endocrine — Thyroid Disorders',         addDays(start, 40)],
+    ['Neurology — Stroke',                    addMonths(start, 2)],   // mid-semester
+    ['Respiratory — Pneumonia',               addDays(end, -35)],
+    ['Nephrology — Acute Kidney Injury',      addDays(end, -10)],     // last ~10 days → ≈1/day
+    ['Hematology — Anemia',                   addDays(end, -5)],      // last 5 days → ≈2/day
+    ['Rheumatology — SLE',                    addDays(end, -2)],      // crunch → several/day
+  ];
+  plan.forEach(([name, studied], k)=>{
+    const reviews=scheduleReviews(studied);
+    // if the semester is already underway, mark past-due reviews as kept-up
+    reviews.forEach(r=>{ if(r.due<today && Math.random()>0.15){ r.completed=true; r.completedAt=r.due; } });
+    state.lectures.push({ id:uid('lec'), name, dateStudied:studied, createdAt:Date.now()+k, reviews });
+  });
+  save(); render(); toast('Sample syllabus loaded','ok');
+}
+async function clearAll(){
+  const ok=await askConfirm('Erase all data','Every lecture and review will be permanently removed from this browser.','Erase everything', true);
+  if(!ok) return;
+  state.lectures=[]; save(); render(); toast('All data erased');
+}
+
+/* Notifications */
+async function enableNotifications(on){
+  if(!on){ state.settings.notifications=false; save(); return; }
+  if(!('Notification' in window)){ toast('Notifications not supported here','warn'); document.getElementById('setNotif').checked=false; return; }
+  let perm=Notification.permission;
+  if(perm==='default') perm=await Notification.requestPermission();
+  if(perm==='granted'){ state.settings.notifications=true; save(); toast('Reminders enabled','ok'); maybeNotify(); }
+  else { state.settings.notifications=false; document.getElementById('setNotif').checked=false; toast('Permission denied','warn'); }
+}
+function maybeNotify(){
+  if(!state.settings.notifications || !('Notification' in window) || Notification.permission!=='granted') return;
+  const s=computeStats(); const n=s.dueToday+s.overdue;
+  if(n>0){
+    try{ new Notification('Recall — reviews waiting', { body:`You have ${s.dueToday} due today${s.overdue?` and ${s.overdue} overdue`:''}. Time to revise!`, silent:true }); }catch(e){}
+  }
+}
+
+/* Confetti (lightweight, self-contained) */
+function celebrate(){
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const canvas=document.getElementById('confetti');
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  canvas.style.display='block';
+  canvas.width=innerWidth*dpr; canvas.height=innerHeight*dpr; ctx.scale(dpr,dpr);
+  const colors=['#6d6bf0','#2bb084','#e6991f','#ef6a52','#8b7bf3','#3f74e8'];
+  const N=140, parts=[];
+  for(let i=0;i<N;i++){
+    parts.push({ x:innerWidth/2+(Math.random()-.5)*120, y:innerHeight*0.34,
+      vx:(Math.random()-.5)*9, vy:Math.random()*-12-4, g:0.32+Math.random()*0.12,
+      s:5+Math.random()*7, rot:Math.random()*6, vr:(Math.random()-.5)*0.4,
+      c:colors[i%colors.length], shape:Math.random()>.5?'r':'c', life:0 });
+  }
+  let frame=0;
+  (function tick(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    let alive=false;
+    parts.forEach(p=>{
+      p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.life++;
+      if(p.y<innerHeight+20){ alive=true; }
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.c; ctx.globalAlpha=Math.max(0,1-p.life/130);
+      if(p.shape==='r') ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6);
+      else { ctx.beginPath(); ctx.arc(0,0,p.s/2,0,7); ctx.fill(); }
+      ctx.restore();
+    });
+    frame++;
+    if(alive && frame<160) requestAnimationFrame(tick);
+    else { canvas.style.display='none'; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); }
+  })();
+}
+
+/* =====================================================================
+   EVENT WIRING (delegated where possible)
+   ===================================================================== */
+function paintIcons(){
+  document.querySelectorAll('.ic-today').forEach(e=>e.innerHTML=ICONS.today);
+  document.querySelectorAll('.ic-cal').forEach(e=>e.innerHTML=ICONS.cal);
+  document.querySelectorAll('.ic-list').forEach(e=>e.innerHTML=ICONS.list);
+  document.querySelectorAll('.ic-book').forEach(e=>e.innerHTML=ICONS.book);
+  document.querySelectorAll('.ic-gear').forEach(e=>e.innerHTML=ICONS.gear);
+  document.querySelectorAll('.ic-cards').forEach(e=>e.innerHTML=ICONS.cards);
+  document.querySelectorAll('.ic-pen').forEach(e=>e.innerHTML=ICONS.pen);
+  document.querySelectorAll('.ic-marker').forEach(e=>e.innerHTML=ICONS.marker);
+  document.querySelectorAll('.ic-eraser').forEach(e=>e.innerHTML=ICONS.eraser);
+  document.querySelectorAll('.ic-image').forEach(e=>e.innerHTML=ICONS.image);
+  document.querySelectorAll('.ic-plus').forEach(e=>e.innerHTML=ICONS.plus);
+  document.querySelectorAll('.ic-x').forEach(e=>e.innerHTML=ICONS.x);
+  document.querySelectorAll('.ic-trash').forEach(e=>e.innerHTML=ICONS.trash);
+  document.querySelectorAll('.brand-mark').forEach(e=>e.innerHTML=logoSVG);
+  document.getElementById('brandMark').innerHTML=logoSVG;
+  const rdm=document.getElementById('reviewDoneMark'); if(rdm) rdm.innerHTML=ICONS.check;
+}
+
+function wire(){
+  paintIcons();
+  applyTheme();
+
+  // Nav (desktop + mobile)
+  document.querySelectorAll('#navDesktop .nav-link, #navMobile .tab').forEach(btn=>{
+    btn.addEventListener('click',()=>switchView(btn.dataset.view));
+  });
+
+  // Topbar
+  document.getElementById('addBtn').addEventListener('click',openAdd);
+  document.getElementById('themeBtn').addEventListener('click',toggleTheme);
+
+  // Modal
+  document.getElementById('modalClose').addEventListener('click',closeModal);
+  document.getElementById('saveBtn').addEventListener('click',saveLecture);
+  document.getElementById('deleteBtn').addEventListener('click',()=>deleteLecture(document.getElementById('editId').value));
+  document.getElementById('lecDate').addEventListener('change',updatePreview);
+  document.getElementById('lecName').addEventListener('keydown',e=>{ if(e.key==='Enter') saveLecture(); });
+  modal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
+
+  // Confirmation dialog
+  const cm=document.getElementById('confirmModal');
+  document.getElementById('confirmOK').addEventListener('click',()=>closeConfirm(true));
+  document.getElementById('confirmCancel').addEventListener('click',()=>closeConfirm(false));
+  cm.addEventListener('click',e=>{ if(e.target===cm) closeConfirm(false); });
+
+  // Card editor modal
+  const cardM=document.getElementById('cardModal');
+  document.getElementById('cardModalClose').addEventListener('click',closeCardModal);
+  document.getElementById('cardSave').addEventListener('click',()=>saveCardModal(false));
+  document.getElementById('cardSaveAdd').addEventListener('click',()=>saveCardModal(true));
+  cardM.addEventListener('click',e=>{ if(e.target===cardM) closeCardModal(); });
+  cardM.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); saveCardModal(!document.getElementById('cardEditId').value); } });
+  cardM.addEventListener('click',e=>{
+    const add=e.target.closest('[data-imgadd]'); if(add){ pendingImgSide=add.dataset.imgadd; document.getElementById('imgFileInput').click(); return; }
+    const ann=e.target.closest('[data-imgannotate]'); if(ann){ openAnnotate(ann.dataset.imgannotate); return; }
+    const del=e.target.closest('[data-imgdel]'); if(del){ cardImgState[del.dataset.imgdel]=null; renderImgSlot(del.dataset.imgdel); return; }
+  });
+  document.getElementById('imgFileInput').addEventListener('change',e=>{
+    const f=e.target.files && e.target.files[0];
+    handleImgFile(f); e.target.value='';
+  });
+
+  // Image annotation modal
+  const annoM=document.getElementById('annotateModal');
+  document.getElementById('annotateClose').addEventListener('click',closeAnnotate);
+  document.getElementById('annoCancel').addEventListener('click',closeAnnotate);
+  document.getElementById('annoSave').addEventListener('click',saveAnnotate);
+  document.getElementById('annoUndo').addEventListener('click',annoUndo);
+  document.getElementById('annoClear').addEventListener('click',annoClearAll);
+  annoM.addEventListener('click',e=>{ if(e.target===annoM) closeAnnotate(); });
+  document.querySelectorAll('.anno-tool').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      annoTool=btn.dataset.tool;
+      document.querySelectorAll('.anno-tool').forEach(b=>b.classList.toggle('active', b===btn));
+    });
+  });
+  document.querySelectorAll('.anno-color').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      annoColor=btn.dataset.color;
+      document.querySelectorAll('.anno-color').forEach(b=>b.classList.toggle('active', b===btn));
+    });
+  });
+  document.getElementById('annoSize').addEventListener('input',e=>{ annoSize=e.target.value; });
+  const annoCanvasEl=document.getElementById('annoCanvas');
+  annoCanvasEl.addEventListener('mousedown',annoStart);
+  annoCanvasEl.addEventListener('mousemove',annoMove);
+  window.addEventListener('mouseup',annoEnd);
+  annoCanvasEl.addEventListener('touchstart',annoStart,{passive:false});
+  annoCanvasEl.addEventListener('touchmove',annoMove,{passive:false});
+  annoCanvasEl.addEventListener('touchend',annoEnd);
+
+  // Import (CSV/TSV + .apkg) modal
+  const importM=document.getElementById('importModal');
+  document.getElementById('importClose').addEventListener('click',closeImport);
+  document.getElementById('importCancel').addEventListener('click',closeImport);
+  document.getElementById('importGo').addEventListener('click',runImport);
+  importM.addEventListener('click',e=>{ if(e.target===importM) closeImport(); });
+  document.querySelectorAll('.import-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.import-tab').forEach(b=>b.classList.toggle('active', b===btn));
+      document.getElementById('importCSVPane').hidden = btn.dataset.itab!=='csv';
+      document.getElementById('importApkgPane').hidden = btn.dataset.itab!=='apkg';
+      importPendingItems=null; document.getElementById('importGo').disabled=true;
+      document.getElementById('csvStatus').textContent=''; document.getElementById('apkgStatus').textContent='';
+    });
+  });
+  document.getElementById('csvFileInput').addEventListener('change',e=>handleCSVFile(e.target.files[0]));
+  document.getElementById('apkgFileInput').addEventListener('change',e=>handleApkgFile(e.target.files[0]));
+
+  // Bulk import modal
+  const bulkM=document.getElementById('bulkModal');
+  document.getElementById('bulkClose').addEventListener('click',closeBulk);
+  document.getElementById('bulkCancel').addEventListener('click',closeBulk);
+  document.getElementById('bulkAdd').addEventListener('click',doBulk);
+  bulkM.addEventListener('click',e=>{ if(e.target===bulkM) closeBulk(); });
+
+  // Prompt (rename) modal
+  const promptM=document.getElementById('promptModal');
+  document.getElementById('promptOK').addEventListener('click',()=>closePrompt(document.getElementById('promptInput').value));
+  document.getElementById('promptCancel').addEventListener('click',()=>closePrompt(null));
+  promptM.addEventListener('click',e=>{ if(e.target===promptM) closePrompt(null); });
+  document.getElementById('promptInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); closePrompt(document.getElementById('promptInput').value); } });
+
+  // Review overlay controls
+  document.getElementById('btnReveal').addEventListener('click',revealAnswer);
+  document.getElementById('reviewCard').addEventListener('click',revealAnswer);
+  document.getElementById('reviewExit').addEventListener('click',exitReview);
+  document.getElementById('reviewDoneBtn').addEventListener('click',exitReview);
+  document.getElementById('gradeRow').addEventListener('click',e=>{ const b=e.target.closest('[data-grade]'); if(b) applyGrade(b.dataset.grade); });
+
+  // Review keyboard shortcuts
+  document.addEventListener('keydown',e=>{
+    const ov=document.getElementById('reviewOverlay');
+    if(!ov.classList.contains('open')) return;
+    if(e.key==='Escape'){ e.preventDefault(); exitReview(); return; }
+    if(!reviewSession) return;
+    if(!reviewSession.revealed){
+      if(e.key===' '||e.key==='Enter'){ e.preventDefault(); revealAnswer(); }
+    } else {
+      if(e.key==='1'){ e.preventDefault(); applyGrade('again'); }
+      else if(e.key==='2'){ e.preventDefault(); applyGrade('hard'); }
+      else if(e.key==='3'||e.key===' '||e.key==='Enter'){ e.preventDefault(); applyGrade('good'); }
+      else if(e.key==='4'){ e.preventDefault(); applyGrade('easy'); }
+    }
+  });
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      if(promptM.classList.contains('open')) closePrompt(null);
+      else if(cardM.classList.contains('open')) closeCardModal();
+      else if(bulkM.classList.contains('open')) closeBulk();
+      else if(cm.classList.contains('open')) closeConfirm(false);
+      else if(modal.classList.contains('open')) closeModal();
+    }
+  });
+
+  // Import file input
+  document.getElementById('importFile').addEventListener('change',e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value=''; });
+
+  // Global delegated clicks
+  document.body.addEventListener('click',e=>{
+    const t=e.target;
+    const actionBtn=t.closest('[data-action]');
+    if(actionBtn){ if(actionBtn.dataset.action==='openAdd') openAdd(); return; }
+
+    // calendar nav
+    if(t.closest('#calPrev')){ calCursor.m--; if(calCursor.m<0){calCursor.m=11;calCursor.y--;} renderCalendar(); return; }
+    if(t.closest('#calNext')){ calCursor.m++; if(calCursor.m>11){calCursor.m=0;calCursor.y++;} renderCalendar(); return; }
+    if(t.closest('#calToday')){ const d=new Date(); calCursor={y:d.getFullYear(),m:d.getMonth()}; selectedDay=todayISO(); renderCalendar(); return; }
+    const cell=t.closest('.cal-cell'); if(cell){ selectedDay=cell.dataset.day; renderCalendar(); return; }
+
+    // schedule filter chips
+    const chip=t.closest('[data-filter]'); if(chip){ scheduleFilter=chip.dataset.filter; renderSchedule(); return; }
+
+    // ---- Flashcards ----
+    if(t.closest('#addSubjectBtn')){ addSubjectFromInput(); return; }
+    const sst=t.closest('[data-sstudy]'); if(sst){ startSubjectReview(sst.dataset.sstudy); return; }
+    const srn=t.closest('[data-srename]'); if(srn){ renameSubjectPrompt(srn.dataset.srename); return; }
+    const sdl=t.closest('[data-sdel]'); if(sdl){ deleteSubject(sdl.dataset.sdel); return; }
+    const lrn=t.closest('[data-lrename]'); if(lrn){ renameFLecturePrompt(lrn.dataset.sub, lrn.dataset.lrename); return; }
+    const ldp=t.closest('[data-ldup]'); if(ldp){ duplicateFLecture(ldp.dataset.sub, ldp.dataset.ldup); return; }
+    const ldl=t.closest('[data-ldel]'); if(ldl){ deleteFLecture(ldl.dataset.sub, ldl.dataset.ldel); return; }
+    const stog=t.closest('[data-subtoggle]'); if(stog){ subjToggle(stog.dataset.subtoggle); return; }
+    const flecEl=t.closest('.flec'); if(flecEl){ selectLecture(flecEl.dataset.sub, flecEl.dataset.lec); return; }
+    if(t.closest('#addCardBtn')){ openCardModal(fcSelSubject, fcSelLecture); return; }
+    if(t.closest('#bulkBtn')){ openBulk(fcSelSubject, fcSelLecture); return; }
+    if(t.closest('#importCardsBtn')){ openImport(fcSelSubject, fcSelLecture); return; }
+    const ced=t.closest('[data-cedit]'); if(ced){ openCardModal(fcSelSubject, fcSelLecture, ced.dataset.cedit); return; }
+    const cdl=t.closest('[data-cdel]'); if(cdl){ deleteCard(fcSelSubject, fcSelLecture, cdl.dataset.cdel); renderBadges(); return; }
+    if(t.closest('#studyDeck')){ startReview(fcSelSubject, fcSelLecture); return; }
+    if(t.closest('#fcBack')){ fcSelLecture=null; renderFlashcards(); return; }
+
+    // dashboard / calendar jumps into flashcards
+    const go=t.closest('[data-go]'); if(go){ switchView(go.dataset.go); return; }
+    const sj=t.closest('[data-studyjump-sub]'); if(sj){ switchView('flashcards'); selectLecture(sj.dataset.studyjumpSub, sj.dataset.studyjumpLec); startReview(sj.dataset.studyjumpSub, sj.dataset.studyjumpLec); return; }
+    const cj=t.closest('[data-cardjump-sub]'); if(cj){ switchView('flashcards'); selectLecture(cj.dataset.cardjumpSub, cj.dataset.cardjumpLec); return; }
+
+    // lecture edit / delete / second add
+    const ed=t.closest('[data-edit]'); if(ed){ openEdit(ed.dataset.edit); return; }
+    const del=t.closest('[data-del]'); if(del){ deleteLecture(del.dataset.del); return; }
+    if(t.closest('#addBtn2')){ openAdd(); return; }
+
+    // lecture track node toggles its review
+    const node=t.closest('.track-node'); if(node){
+      const l=state.lectures.find(x=>x.id===node.dataset.id); const r=l&&l.reviews[+node.dataset.i];
+      if(r) toggleReview(node.dataset.id, +node.dataset.i, !r.completed);
+      return;
+    }
+
+    // settings buttons
+    if(t.closest('#semSave')){ saveSemester(); return; }
+    if(t.closest('#ivSave')){ saveIntervals(false); return; }
+    if(t.closest('#ivApply')){ saveIntervals(true); return; }
+    if(t.closest('#ivReset')){ state.settings.intervals=defaultPattern(getN()); save(); render(); toast('Pattern reset','ok'); return; }
+    if(t.closest('#exportBtn')){ exportJSON(); return; }
+    if(t.closest('#importBtn')){ document.getElementById('importFile').click(); return; }
+    if(t.closest('#sampleBtn')){ loadSample(); return; }
+    if(t.closest('#clearBtn')){ clearAll(); return; }
+  });
+
+  // Delegated change events: checkboxes, switches, search
+  document.body.addEventListener('change',e=>{
+    const t=e.target;
+    if(t.classList.contains('check')){ toggleReview(t.dataset.id, +t.dataset.i, t.checked); return; }
+    if(t.id==='setDark'){ state.settings.theme=t.checked?'dark':'light'; save(); applyTheme(); return; }
+    if(t.id==='setNotif'){ enableNotifications(t.checked); return; }
+    if(t.id==='cardsPerSession'){
+      const n=clamp(Math.round(+t.value||DEFAULT_CARDS_PER_SESSION),1,500);
+      state.settings.cardsPerSession=n; t.value=n; save(); toast('Cards per session updated','ok'); return;
+    }
+  });
+
+  // Delegated input events: search fields (keep focus by not re-rendering whole view on each keystroke)
+  document.body.addEventListener('input',e=>{
+    const t=e.target;
+    if(t.id==='schSearch'){ scheduleSearch=t.value; renderScheduleResults(); return; }
+    if(t.id==='lecSearch'){ lectureSearch=t.value; renderLecturesResults(); return; }
+    if(t.id==='fcSearch'){ fcSearch=t.value; const dl=document.getElementById('deckList'); const lec=findFLecture(fcSelSubject,fcSelLecture); if(dl&&lec) dl.innerHTML=deckListHTML(lec); return; }
+    if(t.id==='bulkText'){ const n=parseBulk(t.value).length; document.getElementById('bulkCount').textContent=n+' card'+(n===1?'':'s')+' detected'; return; }
+  });
+
+  // Delegated keydown: quick-add subject / lecture on Enter
+  document.body.addEventListener('keydown',e=>{
+    if(e.key!=='Enter') return;
+    const t=e.target;
+    if(t.id==='newSubject'){ e.preventDefault(); addSubjectFromInput(); return; }
+    if(t.dataset && t.dataset.newlec){ e.preventDefault(); addLectureFromInput(t.dataset.newlec, t); return; }
+  });
+}
+
+/* Partial re-renders that preserve the focused search input */
+function renderScheduleResults(){
+  const view=document.getElementById('view-schedule');
+  const card=view.querySelector('.card.card-pad');
+  if(!card) return renderSchedule();
+  const list=filterTasks();
+  card.innerHTML = list.length ? `<div class="task-list">${list.map(t=>taskRow(t)).join('')}</div>`
+    : `<div class="empty">${ICONS.inbox}<h4>Nothing here</h4><p>No reviews match this filter${scheduleSearch?' and search':''}.</p></div>`;
+}
+function renderLecturesResults(){
+  const view=document.getElementById('view-lectures');
+  // rebuild only the list portion (everything after the toolbar)
+  let list=[...state.lectures];
+  if(lectureSearch){ const q=lectureSearch.toLowerCase(); list=list.filter(l=>l.name.toLowerCase().includes(q)); }
+  list.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  // remove old cards/empties (keep head + toolbar)
+  [...view.querySelectorAll('.lec, .empty')].forEach(n=>n.remove());
+  const html = list.length ? list.map(lectureCard).join('')
+    : `<div class="empty card card-pad">${ICONS.search}<h4>No matches</h4><p>No lecture names match &ldquo;${escapeHTML(lectureSearch)}&rdquo;.</p></div>`;
+  view.insertAdjacentHTML('beforeend', html);
+}
+
+/* ---- Init ---------------------------------------------------------------- */
+wire();
+render();
+maybeNotify();
+</script>
+</body>
+</html>
